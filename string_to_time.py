@@ -1,9 +1,11 @@
 class StringToTime:
     #Can either be instantiated with the desired return type and format or used directly
     #If instantiated, use translate, if not, use convert
-    def __init__(self, return_type="ms", format=0, return_format="int"):
+    def __init__(self, input_unit="ms", input_format=0, return_unit="ms", return_type="int", return_format=1):
+        self.return_unit = return_unit
+        self.input_format = input_format
         self.return_type = return_type
-        self.format = format
+        self.input_unit = input_unit
         self.return_format = return_format
     
     def translate(self, input):
@@ -11,10 +13,10 @@ class StringToTime:
         num_str = ""
         input = input.replace(" ", "")
         input = input.lower()
-        format = self.format
+        format = 0
 
         #Automatically select format
-        if format == 0:
+        if self.input_format == 0:
             for i in input:
                 if i.isalpha():
                     format = 1
@@ -22,6 +24,7 @@ class StringToTime:
                 else:
                     format = 2
 
+        #Match format instead of self because of auto detection
         match format:
             case 1: #__h __m __s ___ or __h__m__s___
                 for idx, i in enumerate(input):
@@ -74,24 +77,24 @@ class StringToTime:
                 if num_str != "":
                     num += int(num_str)
 
-        match self.return_type.casefold():
+        match self.return_unit.casefold():
             case "ms":
                 return num
             case "s":
-                return num // 1000 if self.return_format == "int" else num / 1000
+                return num // 1000 if self.return_type == "int" else num / 1000
             case "m":
-                return num // 60000 if self.return_format == "int" else num / 60000
+                return num // 60000 if self.return_type == "int" else num / 60000
             case "h":
-                return num // 3600000 if self.return_format == "int" else num / 3600000
+                return num // 3600000 if self.return_type == "int" else num / 3600000
 
-    def convert(input, return_type="ms", format=0, return_format = "int"):
+    def convert(input, return_unit="ms", input_format=0, return_type = "int"):
         num = 0
         num_str = ""
         input = input.replace(" ", "")
         input = input.lower()
 
         #Automatically select format
-        if format == 0:
+        if input_format == 0:
             for i in input:
                 if i.isalpha():
                     format = 1
@@ -99,7 +102,7 @@ class StringToTime:
                 else:
                     format = 2
 
-        match format:
+        match input_format:
             case 1: #__h __m __s ___ or __h__m__s___
                 for idx, i in enumerate(input):
                     if i.isdigit():
@@ -151,19 +154,19 @@ class StringToTime:
                 if num_str != "":
                     num += int(num_str)
 
-        match return_type.casefold():
+        match return_unit.casefold():
             case "ms":
                 return num
             case "s":
-                return num // 1000 if return_format == "int" else num / 1000
+                return num // 1000 if return_type == "int" else num / 1000
             case "m":
-                return num // 60000 if return_format == "int" else num / 60000
+                return num // 60000 if return_type == "int" else num / 60000
             case "h":
-                return num // 3600000 if return_format == "int" else num / 3600000
+                return num // 3600000 if return_type == "int" else num / 3600000
     
-    def timeToString(num, input_type="ms", format=1):
+    def convertTimeToString(num, input_unit="ms", return_format=1):
         output = ""
-        match input_type:
+        match input_unit:
             case "ms":
                 pass
             case "s":
@@ -173,7 +176,7 @@ class StringToTime:
             case "_":
                 raise Exception("Invalid input type [ms/s/m]")
         num = int(num)
-        match format:
+        match return_format:
             case 1 | 3:
                 #Hours
                 val = num // 3600000
@@ -224,4 +227,75 @@ class StringToTime:
                     output += str(num)
                 else:
                     output += "000"
-        return output.upper() if format == 3 else output
+        return output.upper() if return_format == 3 else output
+    
+    def translateTimeToString(self, num):
+        output = ""
+        match self.input_unit:
+            case "ms":
+                pass
+            case "s":
+                num *= 1000
+            case "m":
+                num *= 60000
+            case "_":
+                raise Exception("Invalid input type [ms/s/m]")
+        num = int(num)
+        match self.return_format:
+            case 1 | 3:
+                #Hours
+                val = num // 3600000
+                if val > 0:
+                    output += str(val) + "h "
+                    num %= 3600000
+                #Minutes
+                val = num // 60000
+                if val > 0:
+                    output += str(val) + "m "
+                    num %= 60000
+                #Seconds
+                val = num // 1000
+                if val > 0:
+                    output += str(val) + "s "
+                    num %= 1000
+                #Milliseconds
+                if num > 0:
+                    output += str(num) + "ms"
+            case 2:
+                contains_hours = False
+                contains_minutes = False
+                #Hours
+                val = num // 3600000
+                if val > 0:
+                    output += str(val) + ":"
+                    num %= 3600000
+                    contains_hours = True
+                #Minutes
+                val = num // 60000
+                if val > 0:
+                    output += str(val) + ":"
+                    num %= 60000
+                    contains_minutes = True
+                elif contains_hours:
+                    output += "00:"
+                #Seconds
+                val = num // 1000
+                if val > 0:
+                    output += str(val) + "."
+                    num %= 1000
+                elif contains_minutes or contains_hours:
+                    output += "00."
+                else:
+                    output += "0."
+                #Milliseconds
+                if num > 0:
+                    output += str(num)
+                else:
+                    output += "000"
+        return output.upper() if self.return_format == 3 else output
+    
+# t = StringToTime(input_unit="s", input_format=0, return_unit="s", return_type="float", return_format=1)
+# test = t.translateTimeToString(32500)
+# test2 = t.translate(test)
+# print(test)
+# print(test2)

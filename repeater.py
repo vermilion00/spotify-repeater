@@ -15,7 +15,7 @@ from spotipy.oauth2 import SpotifyOAuth
 from string_to_time import StringToTime as t
 import time
 
-t = t(return_type="s", format=0, return_format="float")
+t = t(return_unit="s", format=0, return_type="float")
 #TODO: Remove these (Environment Variables)
 client_id = "99a806166c72479f95636439a05cf4ec"
 client_secret = "c40c82142d594cdea4b922b4faff8a38"
