@@ -16,7 +16,7 @@ import threading
 from os import getenv
 
 start_time = 0
-stop_time = 0
+end_time = 0
 pre_time = 0
 post_time = 0
 duration = 0
@@ -152,9 +152,24 @@ def startLoop():
             time.sleep(0.1)
 
 #TODO: Add this
-def copyTimestamp():
-    print("Copied timestamp")
-    #track_info = sp.current_user_playing_track()
+def copyTimestamp(btn):
+    global start_time
+    global end_time
+    global duration
+    track_info = sp.current_user_playing_track()
+    match btn.casefold():
+        case "start":
+            start_time = track_info['progress_ms'] / 1000 #in s
+            start_time_entry.insert(0, stt.timeToString(start_time, input_type="s"))
+        case "stop":
+            end_time = track_info['progress_ms'] / 1000 #in s
+            end_time_entry.insert(0, stt.timeToString(end_time, input_type="s"))
+    if start_time > 0 and end_time > 0:
+        duration = end_time - start_time
+        duration_entry.config(state=NORMAL)
+        duration_entry.delete('0', 'end')
+        duration_entry.insert(0, stt.timeToString(duration, input_type="s"))
+        duration_entry.config(state=DISABLED)
 
 def stopEvent(event=None):
     global stop
@@ -175,7 +190,8 @@ client_secret = getenv('spotipy_client_secret')
 scope = ("user-modify-playback-state", "user-read-currently-playing")
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id,client_secret=client_secret,redirect_uri="http://127.0.0.1:3000",scope=scope))
 
-print(sp.current_user_playing_track())
+# track_info = sp.current_user_playing_track()
+# print(track_info['progress_ms'])
 
 inf_thread = threading.Thread(target=startInf)
 loop_thread = threading.Thread(target=startLoop)
@@ -187,29 +203,29 @@ inf_thread.start()
 root = Tk()
 root.title("Spotify Repeater")
 loop = BooleanVar(value=True)
-hello_msg = ttk.Label(root, padding="10 5 10 5", text="Set a start and a stop time to loop between, and optionally set dead times at the start and end of the loop.\nAlternatively, you can leave the end time blank to leave the song playing\nand use the hotkey to keep rewinding to the start time.")
+hello_msg = ttk.Label(root, padding="10 5 10 5", text="Set a start and a stop time to loop between, and optionally set dead times at the start\nand end of the loop. Alternatively, you can leave the end time blank to leave the song\nplaying and use the hotkey to keep rewinding to the start time.")
 hello_msg.grid(row=0, column=0, rowspan=2, columnspan=6)
 start_time_msg = ttk.Label(root, text="Start time").grid(row=2, column=0)
 start_time_str = "" #TODO: Do i need these?
 start_time_entry = ttk.Entry(root, textvariable=start_time_str, width=15, justify=CENTER)
 start_time_entry.grid(row=3, column=0)
 start_time_entry.bind('<Return>', startEvent)
-copy_start_time_btn = ttk.Button(root, text="C", command=copyTimestamp, width=2) 
-copy_start_time_btn.grid(row=3, column=1)
+copy_start_time_btn = ttk.Button(root, text="C", command=lambda m="start": copyTimestamp(m), width=2) 
+copy_start_time_btn.grid(row=3, column=0, sticky=E)
 end_time_msg = ttk.Label(root, text="End time").grid(row=2, column=2)
 end_time_str = "" 
 end_time_entry = ttk.Entry(root, textvariable=end_time_str, width=15, justify=CENTER)
 end_time_entry.grid(row=3, column=2)
 end_time_entry.bind('<Return>', startEvent)
 # end_time_entry.bind('<FocusIn>', (lambda args: duration_entry.delete('0', 'end')))
-copy_end_time_btn = ttk.Button(root, text="C", command=copyTimestamp, width=2) 
-copy_end_time_btn.grid(row=3, column=3)
-duration_msg = ttk.Label(root, text="Duration").grid(row=2, column=4)
+copy_end_time_btn = ttk.Button(root, text="C", command=lambda m="stop": copyTimestamp(m), width=2) 
+copy_end_time_btn.grid(row=3, column=2, sticky=E)
+duration_msg = ttk.Label(root, text="Duration").grid(row=2, column=3)
 duration_str = ""
 duration_entry = ttk.Entry(root, textvariable=duration_str, state=DISABLED, justify=CENTER, width=9)
 # duration_entry.bind('<FocusIn>', (lambda args: duration_entry.delete('0', 'end')))
 # duration_entry.bind('<FocusIn>', (lambda args: end_time_entry.delete('0', 'end')))
-duration_entry.grid(row=3, column=4)
+duration_entry.grid(row=3, column=3)
 duration_entry.bind('<Return>', startEvent)
 pre_time_msg = ttk.Label(root, text="Pre-time").grid(row=4, column=0)
 pre_time_str = ""
@@ -220,10 +236,10 @@ post_time_str = ""
 post_time_entry = ttk.Entry(root, textvariable=post_time_str, width=15, justify=CENTER)
 post_time_entry.grid(row=5, column=2)
 start_btn = ttk.Button(root, text="Start", command=startEvent)
-start_btn.grid(row=3, column=5)
+start_btn.grid(row=3, column=4)
 stop_btn = ttk.Button(root, text="Stop", command=stopEvent)
-stop_btn.grid(row=4, column=5)
-loop_check = ttk.Checkbutton(root, state="selected", text="Loop", variable=loop).grid(row=5, column=5)
+stop_btn.grid(row=4, column=4)
+loop_check = ttk.Checkbutton(root, state="selected", text="Loop", variable=loop).grid(row=5, column=4)
 #Hacky way to get bottom padding to work because google doesn't help
 empty_label = ttk.Label(root).grid(row=6, column=0)
 
