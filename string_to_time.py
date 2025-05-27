@@ -97,10 +97,10 @@ class StringToTime:
         if input_format == 0:
             for i in input:
                 if i.isalpha():
-                    format = 1
+                    input_format = 1
                     break
                 else:
-                    format = 2
+                    input_format = 2
 
         match input_format:
             case 1: #__h __m __s ___ or __h__m__s___
