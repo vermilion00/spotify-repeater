@@ -82,8 +82,8 @@ data = {
 
 }
 
+#On separate thread
 def updateInfo():
-    global update_info_flag
     global artist_name
     global album_name
     global song_name
@@ -101,52 +101,50 @@ def updateInfo():
     global prev_album_name
     global prev_song_name
     while True:
-        if update_info_flag:
-            update_info_flag = False
-            info = sp.current_user_playing_track()
-            #If a song is playing, info won't be None
-            if info != None:
-                #song_duration.set(stt.convertTimeToString(info['item']['duration_ms'], return_format=2))
-                if prev_song_name != info['item']['name']:
-                    song_name.set(info['item']['name'])
-                    prev_song_name = info['item']['name']
-                    song_link = info['item']['uri']
-                    song_label.bind('<Button-1>', lambda a, m=song_link: open_new(m))
+        info = sp.current_user_playing_track()
+        #If a song is playing, info won't be None
+        if info != None:
+            #song_duration.set(stt.convertTimeToString(info['item']['duration_ms'], return_format=2))
+            if prev_song_name != info['item']['name']:
+                song_name.set(info['item']['name'])
+                prev_song_name = info['item']['name']
+                song_link = info['item']['uri']
+                song_label.bind('<Button-1>', lambda a, m=song_link: open_new(m))
+            if prev_album_name != info['item']['album']['name']:
+                prev_album_name = info['item']['album']['name']
+                #Artist names
+                artist_name_buf = ""
+                num_artists = 0
+                artists = info['item']['artists']
+                for artist in artists:
+                    num_artists += 1
+                    if num_artists == 1:
+                        artist_name_buf += artist['name']
+                    else:
+                        artist_name_buf += ", " + artist['name']
+
+                artist_name.set(artist_name_buf)
+                album_name.set(info['item']['album']['name'])
+                #release_date.set(info['item']['album']['release_date'])
+                #Only the first artist
+                artist_link = info['item']['artists'][0]['uri']
+                album_link = info['item']['album']['uri']
                 #Probably not the best way to update the picture
                 #Configure doesn't seem to work
-                if prev_album_name != info['item']['album']['name']:
-                    prev_album_name = info['item']['album']['name']
-                    #Artist names
-                    artist_name_buf = ""
-                    num_artists = 0
-                    artists = info['item']['artists']
-                    for artist in artists:
-                        num_artists += 1
-                        if num_artists == 1:
-                            artist_name_buf += artist['name']
-                        else:
-                            artist_name_buf += ", " + artist['name']
-
-                    artist_name.set(artist_name_buf)
-                    album_name.set(info['item']['album']['name'])
-                    #release_date.set(info['item']['album']['release_date'])
-                    #Only the first artist
-                    artist_link = info['item']['artists'][0]['uri']
-                    album_link = info['item']['album']['uri']
-                    #0 is the highest res, 2 the lowest
-                    cover_img = requests.get(info['item']['album']['images'][IMG_QUALITY['mid']]['url']).content
-                    image = resizeImg(cover_img, 150, 150, Image.LANCZOS)
-                    album_cover = ImageTk.PhotoImage(image)
-                    album_cover_box = Label(mainframe, image=album_cover)
-                    album_cover_box.grid(row=6, column=0, rowspan=30, columnspan=3, padx=10, pady=(10,0))
-                    album_cover_box.bind('<Enter>', lambda a, m="album_cover": showHint(m))
-                    album_cover_box.bind('<Button-1>', lambda a, m=album_link: openURL(m))
-                    artist_label.bind('<Button-1>', lambda a, m=artist_link: openURL(m))
-                    album_label.bind('<Button-1>', lambda a, m=album_link: openURL(m))
-            else:
-                song_name.set("Not playing")
-                album_name.set("Not playing")
-                artist_name.set("Not playing")
+                cover_img = requests.get(info['item']['album']['images'][IMG_QUALITY['mid']]['url']).content
+                image = resizeImg(cover_img, 150, 150, Image.LANCZOS)
+                album_cover = ImageTk.PhotoImage(image)
+                album_cover_box = Label(mainframe, image=album_cover)
+                album_cover_box.grid(row=6, column=0, rowspan=30, columnspan=3, padx=10, pady=(10,0))
+                album_cover_box.bind('<Enter>', lambda a, m="album_cover": showHint(m))
+                album_cover_box.bind('<Button-1>', lambda a, m=album_link: openURL(m))
+                artist_label.bind('<Button-1>', lambda a, m=artist_link: openURL(m))
+                album_label.bind('<Button-1>', lambda a, m=album_link: openURL(m))
+        else:
+            song_name.set("Not playing")
+            album_name.set("Not playing")
+            artist_name.set("Not playing")
+        time.sleep(1)
 
 def startEvent(event=None):
     global duration
@@ -167,7 +165,7 @@ def startEvent(event=None):
         start_inf_flag = False
         start_loop_flag = False
 
-#On separate Thread
+#On separate thread
 def startInf():
     global start_inf_flag
     global start_time
@@ -192,10 +190,9 @@ def startInf():
             except:
                 pass
         else:
-            #TODO: Play around with the time
             time.sleep(0.1)
 
-#On separate Thread
+#On separate thread
 def startLoop():
     global start_loop_flag
     global stop
@@ -334,14 +331,12 @@ def nextTrack():
         sp.next_track()
     except:
         pass
-    #updateInfo()
 
 def prevTrack():
     try:
         sp.previous_track()
     except:
         pass
-    #updateInfo()
 
 def rewind():
     try:
@@ -360,11 +355,11 @@ def resizeImg(img_file, x=150, y=150, alg=Image.LANCZOS):
     return img
 
 #Put peroidic calls here
-def update():
-    global update_info_flag
-    # updateInfo()
-    update_info_flag = True
-    root.after(1000, update)
+# def update():
+#     global update_info_flag
+#     # updateInfo()
+#     update_info_flag = True
+#     root.after(1000, update)
 
 def savePreset():
     global preset_name
@@ -486,13 +481,13 @@ def toggleMenu():
 #     for i in range(preset_num):
 
 
+#TODO: Fix images
 def createPreset(i, data, mode="from_buffer"):
     global preset_num
     global preset_bar
     global cover_img
     i = int(i)
     preset_frame = ttk.Frame(preset_bar, padding="0 1 0 1", borderwidth=5, relief=RAISED)
-    # preset_frame.bind('<Button-1>', lambda a, m)
     preset_name = data['preset_name']
     song_name = data['song_name']
     start_time = s.translateTimeToString(data['start_time'], return_unit="s")
@@ -543,7 +538,6 @@ restart_loop = False
 #Necessary, since they're on separate threads
 start_inf_flag = False
 start_loop_flag = False
-update_info_flag = True
 hint_label_text = ""
 prev_album_name = ""
 prev_song_name = ""
@@ -723,12 +717,10 @@ save_preset_btn.bind('<Enter>', lambda a, m="save_preset_button": showHint(m))
 menu_btn = ttk.Button(mainframe, text="Hide presets", command=toggleMenu)
 menu_btn.grid(row=16, column=5)
 menu_btn.bind('<Enter>', lambda a, m='hide_presets_button': showHint(m))
-
 preset_bar_helper = ScrolledFrame(root, width=205, height=347, scrollbars='vertical')
 preset_bar_helper.pack(side='top', expand=True, fill='both')
 preset_bar_helper.bind_scroll_wheel(root)
 preset_bar = preset_bar_helper.display_widget(Frame)
-# preset_bar.pack(fill='both', expand=True)
 
 loadPreset()
 
@@ -737,5 +729,5 @@ start_time_entry.focus_force()
 
 #root.update()
 #Keep song info updated every 3 seconds
-update()
+# update()
 root.mainloop()
