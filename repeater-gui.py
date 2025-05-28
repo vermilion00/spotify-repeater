@@ -31,6 +31,10 @@ SAVE_PATH = ".presets/savefile.txt"
 FORBIDDEN_CHARS = r'[\\/:*?"<>|]' #Not allowed in windows file names
 test = r'Test\<>///|||???::*'
 
+#In char units
+PLAYER_LABEL_WIDTH = 44
+PRESET_LABEL_WIDTH = 20
+
 #TODO: Make sure this works on other platforms
 #Make presets folder if it doesn't exist
 if not path.exists(SAVE_DIR):
@@ -381,7 +385,7 @@ def savePreset():
     
     #Don't allow saving not playing presets
     if song_name.get() != "Not playing":
-        image = resizeImg(cover_img, 80, 80, Image.LANCZOS)
+        image = resizeImg(cover_img, 60, 60, Image.LANCZOS)
         img_path = ".presets/" + sub(FORBIDDEN_CHARS, "", album_name.get()) + ".jpg"
         image.save(img_path)
         i = len(data.keys())
@@ -518,26 +522,32 @@ def createPreset(i, data, mode="from_buffer"):
     song_name = data['song_name']
     start_time = s.translateTimeToString(data['start_time'], return_unit="s")
     end_time = s.translateTimeToString(data['end_time'], return_unit="s")
-    name_label = ttk.Label(preset_frame, text=preset_name, font=('Segoe UI', 8, 'bold'), width=20)
+    name_label = ttk.Label(preset_frame, text=preset_name, font=('Segoe UI', 8, 'bold'), width=PRESET_LABEL_WIDTH)
     name_label.grid(row=0, column=0, sticky=W)
-    song_label = ttk.Label(preset_frame, text=song_name, font=('Segoe UI', 8), width=20)
+    song_label = ttk.Label(preset_frame, text=song_name, font=('Segoe UI', 8), width=PRESET_LABEL_WIDTH)
     song_label.grid(row=1, column=0, sticky=W)
     time = start_time + " - " + end_time
-    time_label = ttk.Label(preset_frame, text=time, font=('Segoe UI', 8), width=20)
+    time_label = ttk.Label(preset_frame, text=time, font=('Segoe UI', 8), width=PRESET_LABEL_WIDTH)
     time_label.grid(row=2, column=0, sticky=W)
     preset_frame.pack(fill=X, expand=True)
     if mode == "from_buffer":
-        image = resizeImg(cover_img, 80, 80, Image.LANCZOS)
+        image = resizeImg(cover_img, 60, 60, Image.LANCZOS)
     elif mode == "from_disk":
         #image = open(".presets/Unconquered.jpg", 'br')
         image = open(data['img_path'], 'br')
         cover_img = image.read()
         image = Image.open(BytesIO(cover_img))
+    # stock_img = open(data['img_path'], 'br')
+    # cover_img = stock_img.read()
+    # #Need to open as BytesIO for it to work
+    # image = Image.open(BytesIO(cover_img))
     album_cover = ImageTk.PhotoImage(image)
-    album_cover_box = ttk.Label(root, image=album_cover)
-    album_cover_box.pack()
-    # album_cover_box.grid(row=25, column=2, rowspan=3)
-    image_list.append(image)
+    album_cover_box = ttk.Label(preset_frame, image=album_cover)
+    # album_cover_box.pack()
+    album_cover_box.grid(row=0, column=1, rowspan=3, sticky=E)
+    # image_list.append(image)
+    preset_frame.photo = album_cover
+
 
 #Spotipy config
 client_id = getenv('spotipy_client_id')
@@ -703,15 +713,15 @@ album_cover_box = ttk.Label(mainframe, image=album_cover)
 album_cover_box.grid(row=6, column=0, rowspan=50, columnspan=3, padx=10, pady=(10,0))
 album_cover_box.bind('<Button-1>', lambda a, m=album_link: openURL(m))
 album_cover_box.bind('<Enter>', lambda a, m="album_cover": showHint(m))
-song_label = ttk.Label(mainframe, textvariable=song_name, padding="", font=("Segoe UI", 10, 'bold'))
+song_label = ttk.Label(mainframe, textvariable=song_name, padding="", font=("Segoe UI", 10, 'bold'), width=PLAYER_LABEL_WIDTH)
 song_label.grid(row=10, column=3, columnspan=4, sticky=W, pady=(10,0))
 song_label.bind('<Button-1>', lambda a, m=song_link: openURL(m))
 song_label.bind('<Enter>', lambda a, m="song_label": showHint(m))
-album_label = ttk.Label(mainframe, textvariable=album_name, padding="", font=("Segoe UI", 8))
+album_label = ttk.Label(mainframe, textvariable=album_name, padding="", font=("Segoe UI", 8), width=PLAYER_LABEL_WIDTH)
 album_label.grid(row=11, column=3, columnspan=4, sticky=W)
 album_label.bind('<Button-1>', lambda a, m=album_link: openURL(m))
 album_label.bind('<Enter>', lambda a, m="album_label": showHint(m))
-artist_label = ttk.Label(mainframe, textvariable=artist_name, padding="", font=("Segoe UI", 8))
+artist_label = ttk.Label(mainframe, textvariable=artist_name, padding="", font=("Segoe UI", 8), width=PLAYER_LABEL_WIDTH)
 artist_label.grid(row=12, column=3, columnspan=4, sticky=W)
 artist_label.bind('<Button-1>', lambda a, m=artist_link: openURL(m))
 artist_label.bind('<Enter>', lambda a, m="artist_label": showHint(m))
@@ -747,6 +757,10 @@ preset_bar_helper.pack(side='top', expand=True, fill='both')
 preset_bar_helper.bind_scroll_wheel(root)
 preset_bar = preset_bar_helper.display_widget(Frame)
 preset_bar_helper.bind('<Enter>', lambda a, m="preset_bar": showHint(m))
+
+# album_cover2 = ImageTk.PhotoImage(image)
+# album_cover_box2 = ttk.Label(root, image=album_cover2)
+# album_cover_box2.pack()
 
 loadPreset()
 
