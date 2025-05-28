@@ -374,9 +374,10 @@ def savePreset():
         image = resizeImg(cover_img, 60, 60, Image.LANCZOS)
         img_path = ".presets/" + sub(FORBIDDEN_CHARS, "", album_name.get()) + ".jpg"
         image.save(img_path)
-        i = len(data.keys())
+        #TODO: If data[0] becomes the setting dict, remove the +1
+        i = len(data.keys()) + 1
         if preset_name.get() == "":
-            name = f"Preset {i+1}"
+            name = f"Preset {i}"
         else:
             name = preset_name.get() 
         preset = {
@@ -397,7 +398,6 @@ def savePreset():
         }
         data[str(i)] = preset
         json.dump(data, open(SAVE_PATH, 'w'), indent=4)
-        # preset_num += 1
         createPreset(i, preset, "from_buffer")
 
 #MARK: Load presets
@@ -423,6 +423,7 @@ def loadPreset(preset):
     global duration #int
     global duration_entry
     global loop #BooleanVar
+    global selected_preset
     preset = str(preset)
     start_time = data[preset]['start_time']
     start_time_entry.delete('0', 'end')
@@ -461,15 +462,27 @@ def loadPreset(preset):
         duration_entry.delete('0', 'end')
         duration_entry.insert(0, s.translateTimeToString(duration))
         duration_entry.config(state=DISABLED)
+
+    #TODO: Is it worth outsourcing this tiny bit of code? Prolly not
+    #Select preset code
+    selectPreset(preset)
+
+def selectPreset(preset):
+    global selected_preset
+    global preset_list
+    preset = int(preset)
+    #Decrement by one since presets are 1-indexed while the list is 0-indexed
+    preset -= 1
+    preset_list[preset].config(relief=SUNKEN)
+    preset_list[selected_preset].config(relief=RAISED)
+    selected_preset = preset
     
 #MARK: Load from disk
 def loadPresetsfromDisk():
     global data
-    # global preset_num
     try:
         with open(SAVE_PATH) as file:
             data = json.load(file)
-        # preset_num = len(data.keys())
         for i in data.keys():
             # if i == "0":
             #     continue
@@ -481,6 +494,7 @@ def loadPresetsfromDisk():
             # globals()[f'preset_artist_name_{int(i)}'] = ""
             # globals()[f'preset_artist_link_{int(i)}'] = ""
             # globals()[f'preset_img_path_{int(i)}'] = ""
+            #TODO: If data[0] becomes setting dict, remove + 1
             createPreset(i, data[i], mode="from_disk")
     except:
         pass
@@ -489,9 +503,11 @@ def loadPresetsfromDisk():
 def createPreset(i, data, mode="from_buffer"):
     global preset_num
     global preset_bar
-    global image_list
     global cover_img
+    global preset_list
+    global preset_dict
     i = int(i)
+    preset_num += 1
     preset_frame = ttk.Frame(preset_bar, padding="", borderwidth=5, relief=RAISED)
     preset_frame.bind('<Button-1>', lambda a, m=preset_num: loadPreset(m))
     preset_name = data['preset_name']
@@ -524,7 +540,14 @@ def createPreset(i, data, mode="from_buffer"):
     album_cover_box.bind('<Button-1>', lambda a, m=preset_num: loadPreset(m))
     #Add to object to avoid the Garbage collector destroying the image
     preset_frame.photo = album_cover
-    preset_num += 1
+    preset_list.append(preset_frame)
+    preset_dict[i] = {
+        "preset_frame": preset_frame,
+        "name_label": name_label,
+        "song_label": song_label,
+        "time_label": time_label,
+        "album_cover_box": album_cover_box
+    }
 
 #TODO: Make this a thing
 def deletePreset():
@@ -657,8 +680,9 @@ song_link = ""
 artist_link = ""
 preset_name = StringVar()
 cover_img_name = ""
-image_list = []
 selected_preset = 0
+preset_list = []
+preset_dict = {}
 
 mainframe = ttk.Frame(root, padding="1 1 1 1")
 # mainframe.pack_propagate(False)
