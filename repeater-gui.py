@@ -7,6 +7,10 @@
 #Add volume fade option
 #Scrolling song info labels
 
+#TODO:
+#Selecting a preset should configure relief to sunken and set all others to raised
+#Save selected preset to be able to delete it
+
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from string_to_time import StringToTime as stt
@@ -79,7 +83,6 @@ HINT_TEXT = {
     "clear_button": "Clears all input fields.",
     "show_presets_button": "Shows the preset sidebar.",
     "hide_presets_button": "Hides the preset sidebar.",
-    "load_preset_button": "Click to load the selected preset from the sidebar.",
     "preset_bar": "Click on a preset to be able to load or delete it.",
     "delete_preset_button": "Delete the selected preset."
 }
@@ -204,7 +207,8 @@ def startInf():
     if not stop:
         try:
             #While the rest is in s, this requires ms
-            sp.start_playback(position_ms=(int(start_time * 1000)))
+            sp.seek_track(position_ms=int(start_time * 1000))
+            sp.start_playback()
         except:
             print("Something went wrong while trying to seek.")
 
@@ -230,7 +234,8 @@ def startLoop():
         time.sleep(pre_time)
     try:
         #While the rest is in s, this requires ms
-        sp.start_playback(position_ms=(int(start_time * 1000)))
+        sp.seek_track(position_ms=int(start_time * 1000))
+        sp.start_playback()
     except:
         print("Seeking track failed")
     try:
@@ -362,6 +367,7 @@ def savePreset():
     global loop
     global duration
     global cover_img
+    # global preset_num
     
     #Don't allow saving "not playing" presets
     if song_name.get() != "Not playing":
@@ -391,6 +397,7 @@ def savePreset():
         }
         data[str(i)] = preset
         json.dump(data, open(SAVE_PATH, 'w'), indent=4)
+        # preset_num += 1
         createPreset(i, preset, "from_buffer")
 
 #MARK: Load presets
@@ -458,11 +465,11 @@ def loadPreset(preset):
 #MARK: Load from disk
 def loadPresetsfromDisk():
     global data
-    global preset_num
+    # global preset_num
     try:
         with open(SAVE_PATH) as file:
             data = json.load(file)
-        preset_num = len(data.keys())
+        # preset_num = len(data.keys())
         for i in data.keys():
             # if i == "0":
             #     continue
@@ -486,20 +493,23 @@ def createPreset(i, data, mode="from_buffer"):
     global cover_img
     i = int(i)
     preset_frame = ttk.Frame(preset_bar, padding="", borderwidth=5, relief=RAISED)
-    preset_frame.bind('<Button-1>', lambda a: open_new("spotify:artist:4CzUzn54Cp9TQr6a7JIlMZ"))
+    preset_frame.bind('<Button-1>', lambda a, m=preset_num: loadPreset(m))
     preset_name = data['preset_name']
     song_name = data['song_name']
     start_time = s.translateTimeToString(data['start_time'], return_unit="s", leave_blank=False)
     end_time = s.translateTimeToString(data['end_time'], return_unit="s")
     name_label = ttk.Label(preset_frame, text=preset_name, font=('Segoe UI', 8, 'bold'), width=PRESET_LABEL_WIDTH)
+    name_label.bind('<Button-1>', lambda a, m=preset_num: loadPreset(m))
     name_label.grid(row=0, column=0, sticky=W)
     song_label = ttk.Label(preset_frame, text=song_name, font=('Segoe UI', 8), width=PRESET_LABEL_WIDTH)
+    song_label.bind('<Button-1>', lambda a, m=preset_num: loadPreset(m))
     song_label.grid(row=1, column=0, sticky=W)
     if end_time == "":
         time = start_time
     else:
         time = start_time + " - " + end_time
     time_label = ttk.Label(preset_frame, text=time, font=('Segoe UI', 8), width=PRESET_LABEL_WIDTH)
+    time_label.bind('<Button-1>', lambda a, m=preset_num: loadPreset(m))
     time_label.grid(row=2, column=0, sticky=W)
     preset_frame.pack(fill=X, expand=True)
     if mode == "from_buffer":
@@ -511,8 +521,14 @@ def createPreset(i, data, mode="from_buffer"):
     album_cover = ImageTk.PhotoImage(image)
     album_cover_box = ttk.Label(preset_frame, image=album_cover)
     album_cover_box.grid(row=0, column=1, rowspan=3, sticky=E)
+    album_cover_box.bind('<Button-1>', lambda a, m=preset_num: loadPreset(m))
     #Add to object to avoid the Garbage collector destroying the image
     preset_frame.photo = album_cover
+    preset_num += 1
+
+#TODO: Make this a thing
+def deletePreset():
+    pass
 
 #MARK: Update Entries
 def updateEntries(entry):
@@ -642,6 +658,7 @@ artist_link = ""
 preset_name = StringVar()
 cover_img_name = ""
 image_list = []
+selected_preset = 0
 
 mainframe = ttk.Frame(root, padding="1 1 1 1")
 # mainframe.pack_propagate(False)
@@ -778,14 +795,14 @@ clear_fields_btn.bind('<Enter>', lambda a, m="clear_button": showHint(m))
 save_preset_btn = ttk.Button(mainframe, text="Save preset", command=savePreset)
 save_preset_btn.grid(row=14, column=5)
 save_preset_btn.bind('<Enter>', lambda a, m="save_preset_button": showHint(m))
-load_preset_btn = ttk.Button(mainframe, text="Load preset", command=lambda: loadPreset(0))
-load_preset_btn.grid(row=15, column=5)
+delete_preset_btn = ttk.Button(mainframe, text="Delete preset", command=lambda: deletePreset)
+delete_preset_btn.grid(row=15, column=5)
 
 #MARK: Sidebar stuff
 menu_btn = ttk.Button(mainframe, text="Hide presets", command=toggleMenu)
 menu_btn.grid(row=17, column=5)
 menu_btn.bind('<Enter>', lambda a, m='hide_presets_button': showHint(m))
-preset_bar_helper = ScrolledFrame(root, width=205, height=347, scrollbars='vertical')
+preset_bar_helper = ScrolledFrame(root, width=198, height=347, scrollbars='vertical')
 preset_bar_helper.pack(side='top', expand=True, fill='both')
 preset_bar_helper.bind_scroll_wheel(root)
 preset_bar = preset_bar_helper.display_widget(Frame)
