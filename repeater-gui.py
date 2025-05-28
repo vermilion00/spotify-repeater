@@ -155,6 +155,7 @@ def startEvent(event=None):
     global start_loop_flag
     global stop
     global first_loop
+    updateEntries("all")
     stop = True
     if duration > 0:
         start_loop_flag = True
@@ -471,6 +472,17 @@ def updateEntries(entry):
             pre_time = t.translate(pre_time_entry.get())
         case "post_time":
             post_time = t.translate(post_time_entry.get())
+        case _:
+            start_time = t.translate(start_time_entry.get())
+            end_time = t.translate(end_time_entry.get())
+            pre_time = t.translate(pre_time_entry.get())
+            post_time = t.translate(post_time_entry.get())
+            if end_time > start_time:
+                duration = end_time - start_time
+                duration_entry.config(state=NORMAL)
+                duration_entry.delete('0', 'end')
+                duration_entry.insert(0, s.translateTimeToString(duration))
+                duration_entry.config(state=DISABLED)
 
 def toggleMenu():
     global menu_visibility
