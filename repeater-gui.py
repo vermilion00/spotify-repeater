@@ -7,9 +7,6 @@
 #Add volume fade option
 #Scrolling song info labels
 
-#TODO:
-#Clear all button on during loop keeps looping 0 seconds
-
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from string_to_time import StringToTime as stt
@@ -77,7 +74,7 @@ HINT_TEXT = {
     "show_presets_button": "Shows the preset sidebar.",
     "hide_presets_button": "Hides the preset sidebar.",
     "load_preset_button": "Click to load the selected preset from the sidebar.",
-    "select_preset": "Select a preset to be able to load or delete it.",
+    "preset_bar": "Click on a preset to be able to load or delete it.",
     "delete_preset_button": "Delete the selected preset."
 }
 
@@ -139,6 +136,7 @@ def updateInfo():
                 album_cover = ImageTk.PhotoImage(image)
                 album_cover_box = Label(mainframe, image=album_cover)
                 album_cover_box.grid(row=6, column=0, rowspan=30, columnspan=3, padx=10, pady=(10,0))
+                #TODO: Is it really necessary to rebind all of these on a change?
                 album_cover_box.bind('<Enter>', lambda a, m="album_cover": showHint(m))
                 album_cover_box.bind('<Button-1>', lambda a, m=album_link: openURL(m))
                 artist_label.bind('<Button-1>', lambda a, m=artist_link: openURL(m))
@@ -156,6 +154,7 @@ def startEvent(event=None):
     global stop
     global first_loop
     updateEntries("all")
+    #Necessary to avoid 0s loops
     stop = True
     if duration > 0:
         start_loop_flag = True
@@ -185,6 +184,8 @@ def startInf():
     global start_inf_flag
     global start_time
     global pre_time
+    global stop
+    stop = False
     # while True:
     # if start_inf_flag:
     start_inf_flag = False
@@ -194,18 +195,19 @@ def startInf():
         except:
             pass
         time.sleep(pre_time)
-    try:
-        #While the rest is in s, this requires ms
-        sp.seek_track(int(start_time * 1000))
-    except:
-        print("Something went wrong while trying to seek.")
-    #Trying to start playback when already playing gives an error
-    try:
-        sp.start_playback()
-    except:
-        pass
-    # else:
-    #     time.sleep(0.1)
+    if not stop:
+        try:
+            #While the rest is in s, this requires ms
+            sp.seek_track(int(start_time * 1000))
+        except:
+            print("Something went wrong while trying to seek.")
+        #Trying to start playback when already playing gives an error
+        try:
+            sp.start_playback()
+        except:
+            pass
+        # else:
+        #     time.sleep(0.1)
 
 #On separate thread
 def startLoop():
@@ -257,7 +259,7 @@ def startLoop():
         except:
             pass
     #Exit condition
-    if loop.get() == True and not stop and (end_time - start_time) > 0:
+    if loop.get() == True and not stop:
         start_loop_flag = True
         if post_time > 0:
             temp_time = time.time()
@@ -311,6 +313,9 @@ def clearFields():
     global duration
     global pre_time
     global post_time
+    global stop
+    #Stop the service to avoid issues
+    stop = True
     start_time = 0
     end_time = 0
     duration = 0
@@ -340,24 +345,6 @@ def playpause():
                 sp.start_playback()
             except:
                 pass
-
-def nextTrack():
-    try:
-        sp.next_track()
-    except:
-        pass
-
-def prevTrack():
-    try:
-        sp.previous_track()
-    except:
-        pass
-
-def rewind():
-    try:
-        sp.seek_track(0)
-    except:
-        pass
 
 def openURL(url):
     if url != "":
@@ -418,9 +405,9 @@ def savePreset():
             "loop": loop.get(),
             "duration": duration
         }
-        createPreset(i, preset, "from_buffer")
         data[str(i)] = preset
         json.dump(data, open(SAVE_PATH, 'w'), indent=4)
+        createPreset(i, preset, "from_disk")
 
 def loadPreset():
     global data
@@ -462,6 +449,12 @@ def updateEntries(entry):
                 duration_entry.config(state=DISABLED)
         case "end_time":
             end_time = t.translate(end_time_entry.get())
+            if end_time <= start_time:
+                duration = 0
+                duration_entry.config(state=NORMAL)
+                duration_entry.delete('0', 'end')
+                duration_entry.insert(0, "")
+                duration_entry.config(state=DISABLED)
             if end_time > start_time:
                 duration = end_time - start_time
                 duration_entry.config(state=NORMAL)
@@ -477,7 +470,13 @@ def updateEntries(entry):
             end_time = t.translate(end_time_entry.get())
             pre_time = t.translate(pre_time_entry.get())
             post_time = t.translate(post_time_entry.get())
-            if end_time > start_time:
+            if end_time <= start_time:
+                duration = 0
+                duration_entry.config(state=NORMAL)
+                duration_entry.delete('0', 'end')
+                duration_entry.insert(0, "")
+                duration_entry.config(state=DISABLED)
+            else:
                 duration = end_time - start_time
                 duration_entry.config(state=NORMAL)
                 duration_entry.delete('0', 'end')
@@ -511,6 +510,7 @@ def toggleMenu():
 def createPreset(i, data, mode="from_buffer"):
     global preset_num
     global preset_bar
+    global image_list
     global cover_img
     i = int(i)
     preset_frame = ttk.Frame(preset_bar, padding="0 1 0 1", borderwidth=5, relief=RAISED)
@@ -518,28 +518,26 @@ def createPreset(i, data, mode="from_buffer"):
     song_name = data['song_name']
     start_time = s.translateTimeToString(data['start_time'], return_unit="s")
     end_time = s.translateTimeToString(data['end_time'], return_unit="s")
-    name_label = ttk.Label(preset_frame, text=preset_name, font=('Segoe UI', 8, 'bold'))
-    name_label.grid(row=0, column=1, sticky=W)
-    song_label = ttk.Label(preset_frame, text=song_name, font=('Segoe UI', 8))
-    song_label.grid(row=1, column=1, sticky=W)
+    name_label = ttk.Label(preset_frame, text=preset_name, font=('Segoe UI', 8, 'bold'), width=20)
+    name_label.grid(row=0, column=0, sticky=W)
+    song_label = ttk.Label(preset_frame, text=song_name, font=('Segoe UI', 8), width=20)
+    song_label.grid(row=1, column=0, sticky=W)
     time = start_time + " - " + end_time
-    time_label = ttk.Label(preset_frame, text=time, font=('Segoe UI', 8))
-    time_label.grid(row=2, column=1, sticky=W)
-    # album_label = ttk.Label(preset_frame, text=album_name, font=('Segoe UI', 8))
-    # album_label.grid(row=1, column=3, columnspan=5)
-    # artist_label = ttk.Label(preset_frame, text=artist_name, font=('Segoe UI', 8))
-    # artist_label.grid(row=2, column=3, columnspan=5)
+    time_label = ttk.Label(preset_frame, text=time, font=('Segoe UI', 8), width=20)
+    time_label.grid(row=2, column=0, sticky=W)
     preset_frame.pack(fill=X, expand=True)
-    # if mode == "from_buffer":
-    #     image = resizeImg(cover_img, 80, 80, Image.LANCZOS)
-    # elif mode == "from_disk":
-    #     image = open(".presets/Unconquered.jpg", 'br')
-    #     # image = open(path, 'br')
-    #     cover_img = image.read()
-    #     image = Image.open(BytesIO(cover_img))
-    # album_cover = ImageTk.PhotoImage(image)
-    # album_cover_box = ttk.Label(test_frame, image=album_cover)
-    # album_cover_box.grid(row=0, column=0, rowspan=3)
+    if mode == "from_buffer":
+        image = resizeImg(cover_img, 80, 80, Image.LANCZOS)
+    elif mode == "from_disk":
+        #image = open(".presets/Unconquered.jpg", 'br')
+        image = open(data['img_path'], 'br')
+        cover_img = image.read()
+        image = Image.open(BytesIO(cover_img))
+    album_cover = ImageTk.PhotoImage(image)
+    album_cover_box = ttk.Label(root, image=album_cover)
+    album_cover_box.pack()
+    # album_cover_box.grid(row=25, column=2, rowspan=3)
+    image_list.append(image)
 
 #Spotipy config
 client_id = getenv('spotipy_client_id')
@@ -602,8 +600,9 @@ song_link = ""
 artist_link = ""
 preset_name = StringVar()
 cover_img_name = ""
+image_list = []
 
-mainframe = ttk.Frame(root, padding="1 1 1 1", width=500, height=350)
+mainframe = ttk.Frame(root, padding="1 1 1 1")
 # mainframe.pack_propagate(False)
 mainframe.pack(side='left', anchor=NW)
 
@@ -721,13 +720,13 @@ artist_label.bind('<Enter>', lambda a, m="artist_label": showHint(m))
 pause_btn = ttk.Button(mainframe, text="O", command=playpause, width=3)
 pause_btn.grid(row=14, column=3, padx=(30,0))
 pause_btn.bind('<Enter>', lambda a, m="pause_button": showHint(m))
-rewind_btn = ttk.Button(mainframe, text="<", command=rewind, width=3)
+rewind_btn = ttk.Button(mainframe, text="<", command=lambda a=0: sp.seek_track(a), width=3)
 rewind_btn.grid(row=14, column=3, padx=(0,30))
 rewind_btn.bind('<Enter>', lambda a, m="rewind_button": showHint(m))
-prev_btn = ttk.Button(mainframe, text="<<", command=prevTrack, width=3)
+prev_btn = ttk.Button(mainframe, text="<<", command=lambda: sp.previous_track(), width=3)
 prev_btn.grid(row=14, column=3, sticky=W, padx=(0,0))
 prev_btn.bind('<Enter>', lambda a, m="prev_button": showHint(m))
-next_btn = ttk.Button(mainframe, text=">>", command=nextTrack, width=3)
+next_btn = ttk.Button(mainframe, text=">>", command=lambda: sp.next_track(), width=3)
 next_btn.grid(row=14, column=3, sticky=E, padx=(0,0))
 next_btn.bind('<Enter>', lambda a, m="next_button": showHint(m))
 clear_fields_btn = ttk.Button(mainframe, text="Clear all", command=clearFields)
@@ -747,6 +746,7 @@ preset_bar_helper = ScrolledFrame(root, width=205, height=347, scrollbars='verti
 preset_bar_helper.pack(side='top', expand=True, fill='both')
 preset_bar_helper.bind_scroll_wheel(root)
 preset_bar = preset_bar_helper.display_widget(Frame)
+preset_bar_helper.bind('<Enter>', lambda a, m="preset_bar": showHint(m))
 
 loadPreset()
 
@@ -754,6 +754,6 @@ loadPreset()
 start_time_entry.focus_force()
 
 #root.update()
-#Keep song info updated every 3 seconds
+#Keep song info updated every second
 # update()
 root.mainloop()

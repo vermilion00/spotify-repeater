@@ -1,12 +1,12 @@
 class StringToTime:
     #Can either be instantiated with the desired return type and format or used directly
     #If instantiated, use translate, if not, use convert
-    def __init__(self, input_format=0, return_unit="ms", return_type="int"):
+    def __init__(self, input_format: int = 0, return_unit: str = "ms", return_type: str = "int"):
         self.return_unit = return_unit
         self.input_format = input_format
         self.return_type = return_type
     
-    def translate(self, input, input_format=None, return_unit=None, return_type=None):
+    def translate(self, input: str, input_format: int = None, return_unit: str = None, return_type: str = None):
         num = 0
         num_str = ""
         input = input.replace(" ", "")
@@ -90,7 +90,7 @@ class StringToTime:
             case "h":
                 return num // 3600000 if return_type == "int" else num / 3600000
 
-    def convert(input, input_format=0, return_unit="ms", return_type = "int"):
+    def convert(input: str, input_format: int = 0, return_unit: str = "ms", return_type: str = "int"):
         num = 0
         num_str = ""
         input = input.replace(" ", "")
@@ -169,12 +169,12 @@ class StringToTime:
     
 #TODO: Rename functions
 class TimeToString:
-    def __init__(self, input_unit="ms", return_unit="ms", return_format=1):
+    def __init__(self, input_unit: str = "ms", return_unit: str = "ms", return_format: int = 1):
         self.return_unit = return_unit
         self.input_unit = input_unit
         self.return_format = return_format
 
-    def convertTimeToString(num, input_unit="ms", return_unit="ms", return_format=1):
+    def convertTimeToString(num: int|float, input_unit: str = "ms", return_unit: str = "ms", return_format: int = 1):
         output = ""
         match input_unit:
             case "ms":
@@ -248,7 +248,7 @@ class TimeToString:
                     output += "000"
         return output.upper() if return_format == 3 else output
     
-    def translateTimeToString(self, num, input_unit=None, return_unit=None, return_format=None):
+    def translateTimeToString(self, num: int|float, input_unit: str = None, return_unit: str = None, return_format: int = None):
         output = ""
         if input_unit == None:
             input_unit = self.input_unit
