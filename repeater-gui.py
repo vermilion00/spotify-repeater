@@ -70,7 +70,12 @@ HINT_TEXT = {
     "rewind_button": "Rewinds the current song to the beginning.",
     "prev_button": "Plays the previous song.",
     "next_button": "Plays the next song.",
-    "clear_button": "Clears all input fields."
+    "clear_button": "Clears all input fields.",
+    "show_presets_button": "Shows the preset sidebar.",
+    "hide_presets_button": "Hides the preset sidebar.",
+    "load_preset_button": "Click to load the selected preset from the sidebar.",
+    "select_preset": "Select a preset to be able to load or delete it.",
+    "delete_preset_button": "Delete the selected preset."
 }
 
 data = {
@@ -128,7 +133,7 @@ def updateInfo():
             cover_img = requests.get(info['item']['album']['images'][IMG_QUALITY['mid']]['url']).content
             image = resizeImg(cover_img, 150, 150, Image.LANCZOS)
             album_cover = ImageTk.PhotoImage(image)
-            album_cover_box = Label(root, image=album_cover)
+            album_cover_box = Label(mainframe, image=album_cover)
             album_cover_box.grid(row=6, column=0, rowspan=30, columnspan=3, padx=10, pady=(10,0))
             album_cover_box.bind('<Enter>', lambda a, m="album_cover": showHint(m))
             album_cover_box.bind('<Button-1>', lambda a, m=album_link: openURL(m))
@@ -370,34 +375,36 @@ def savePreset():
     global loop
     global duration
     global cover_img
-    #TODO: Save preset to sidebar
-    image = resizeImg(cover_img, 80, 80, Image.LANCZOS)
-    img_path = ".presets/" + sub(FORBIDDEN_CHARS, "", album_name.get()) + ".jpg"
-    image.save(img_path)
-    i = len(data.keys())
-    if preset_name.get() == "":
-        name = f"Preset {i+1}"
-    else:
-        name = preset_name.get() 
-    preset = {
-        "preset_name": name,
-        "song_name": song_name.get(),
-        "song_link": song_link,
-        "album_name": album_name.get(),
-        "album_link": album_link,
-        "artist_name": artist_name.get(),
-        "artist_link": artist_link,
-        "img_path": img_path, #path and name of the jpg
-        "start_time": start_time,
-        "end_time": end_time,
-        "pre_time": pre_time,
-        "post_time": post_time,
-        "loop": loop.get(),
-        "duration": duration
-    }
-    createPreset(i, preset, "from_buffer")
-    data[str(i)] = preset
-    json.dump(data, open(SAVE_PATH, 'w'), indent=4)
+    
+    #Don't allow saving not playing presets
+    if song_name.get() != "Not playing":
+        image = resizeImg(cover_img, 80, 80, Image.LANCZOS)
+        img_path = ".presets/" + sub(FORBIDDEN_CHARS, "", album_name.get()) + ".jpg"
+        image.save(img_path)
+        i = len(data.keys())
+        if preset_name.get() == "":
+            name = f"Preset {i+1}"
+        else:
+            name = preset_name.get() 
+        preset = {
+            "preset_name": name,
+            "song_name": song_name.get(),
+            "song_link": song_link,
+            "album_name": album_name.get(),
+            "album_link": album_link,
+            "artist_name": artist_name.get(),
+            "artist_link": artist_link,
+            "img_path": img_path, #path and name of the jpg
+            "start_time": start_time,
+            "end_time": end_time,
+            "pre_time": pre_time,
+            "post_time": post_time,
+            "loop": loop.get(),
+            "duration": duration
+        }
+        createPreset(i, preset, "from_buffer")
+        data[str(i)] = preset
+        json.dump(data, open(SAVE_PATH, 'w'), indent=4)
 
 def loadPreset():
     global data
@@ -453,15 +460,24 @@ def updateEntries(entry):
 def toggleMenu():
     global menu_visibility
     if menu_visibility:
-        preset_bar.grid_forget()
+        # preset_bar_helper.grid_forget()
+        preset_bar_helper.pack_forget()
         menu_visibility = False
         menu_btn.config(text="Show menu")
+        menu_btn.bind('<Enter>', lambda a, m='show_presets_button': showHint(m))
     else:
-        preset_bar.grid(row=0, column=10, rowspan=100)
+        preset_bar_helper.pack(side='right', anchor=NE)
+        # preset_bar_helper.grid(row=0, column=10, rowspan=100, sticky=N)
         menu_visibility = True
         menu_btn.config(text="Hide menu")
+        menu_btn.bind('<Enter>', lambda a, m='hide_presets_button': showHint(m))
 
 # def updatePresets():
+
+# def highlightPreset():
+#     global preset_num
+#     #TODO: If index 0 = settings, change this
+#     for i in range(preset_num):
 
 
 def createPreset(i, data, mode="from_buffer"):
@@ -469,26 +485,24 @@ def createPreset(i, data, mode="from_buffer"):
     global preset_bar
     global cover_img
     i = int(i)
-    preset_frame = ttk.Frame(preset_bar, padding="0 1 0 1", borderwidth=10, relief=RAISED)
+    preset_frame = ttk.Frame(preset_bar, padding="0 1 0 1", borderwidth=5, relief=RAISED)
+    # preset_frame.bind('<Button-1>', lambda a, m)
     preset_name = data['preset_name']
-    artist_name = data['artist_name']
-    album_name = data['album_name']
     song_name = data['song_name']
     start_time = s.translateTimeToString(data['start_time'], return_unit="s")
     end_time = s.translateTimeToString(data['end_time'], return_unit="s")
-    song_label = ttk.Label(preset_frame, text=song_name, font=('Segoe UI', 8, 'bold'))
-    song_label.grid(row=0, column=1)
-    name_label = ttk.Label(preset_frame, text=preset_name, font=('Segoe UI', 8))
-    name_label.grid(row=1, column=1)
+    name_label = ttk.Label(preset_frame, text=preset_name, font=('Segoe UI', 8, 'bold'))
+    name_label.grid(row=0, column=1, sticky=W)
+    song_label = ttk.Label(preset_frame, text=song_name, font=('Segoe UI', 8))
+    song_label.grid(row=1, column=1, sticky=W)
     time = start_time + " - " + end_time
-    # print(start_time)
     time_label = ttk.Label(preset_frame, text=time, font=('Segoe UI', 8))
-    time_label.grid(row=2, column=1)
+    time_label.grid(row=2, column=1, sticky=W)
     # album_label = ttk.Label(preset_frame, text=album_name, font=('Segoe UI', 8))
     # album_label.grid(row=1, column=3, columnspan=5)
     # artist_label = ttk.Label(preset_frame, text=artist_name, font=('Segoe UI', 8))
     # artist_label.grid(row=2, column=3, columnspan=5)
-    preset_frame.grid(row=i, column=0, columnspan=10)
+    preset_frame.pack(fill=X)
     # if mode == "from_buffer":
     #     image = resizeImg(cover_img, 80, 80, Image.LANCZOS)
     # elif mode == "from_disk":
@@ -502,6 +516,9 @@ def createPreset(i, data, mode="from_buffer"):
 
 root = Tk()
 root.title("Spotify Repeater")
+# root.geometry("660x350")
+# root.maxsize(height=900)
+# root.pack_propagate(False)
 root.resizable(False, False)
 #root.minsize()
 #root.maxsize()
@@ -555,80 +572,84 @@ loop_thread.daemon = True
 loop_thread.start()
 inf_thread.start()
 
+#TKinter stuff
+mainframe = ttk.Frame(root, padding="1 1 1 1")
+mainframe.pack(side='left', anchor=NW)
+
 #Hello message
-hello_msg = ttk.Label(root, padding="10 5 10 5", text="Set a start and a stop time to loop between, and optionally set dead times at the start\nand end of the loop. Alternatively, you can leave the end time blank to leave the song\nplaying and use the hotkey to keep rewinding to the start time.")
+hello_msg = ttk.Label(mainframe, padding="10 5 10 5", text="Set a start and a stop time to loop between, and optionally set dead times at the start\nand end of the loop. Alternatively, you can leave the end time blank to leave the song\nplaying and use the hotkey to keep rewinding to the start time.")
 hello_msg.grid(row=0, column=0, rowspan=2, columnspan=7)
 hello_msg.bind('<Enter>', lambda a, m="hello_message": showHint(m))
 
 #Start time stuff
-start_time_msg = ttk.Label(root, text="Start time").grid(row=2, column=1)
-start_time_entry = ttk.Entry(root, width=15, justify=CENTER)
+start_time_msg = ttk.Label(mainframe, text="Start time").grid(row=2, column=1)
+start_time_entry = ttk.Entry(mainframe, width=15, justify=CENTER)
 start_time_entry.grid(row=3, column=1)
 start_time_entry.bind('<Return>', startEvent)
 start_time_entry.bind('<FocusOut>', lambda a, m="start_time": updateEntries(m))
 #Empty var in lambda to catch event argument from bind
 start_time_entry.bind('<Enter>', lambda a, m="start_entry": showHint(m))
-copy_start_time_btn = ttk.Button(root, text="C", command=lambda m="start": copyTimestamp(m), width=2) 
+copy_start_time_btn = ttk.Button(mainframe, text="C", command=lambda m="start": copyTimestamp(m), width=2) 
 copy_start_time_btn.grid(row=3, column=1, sticky=E)
 copy_start_time_btn.bind('<Enter>', lambda a, m="copy_button": showHint(m))
 
 #End time stuff
-end_time_msg = ttk.Label(root, text="End time").grid(row=2, column=3)
+end_time_msg = ttk.Label(mainframe, text="End time").grid(row=2, column=3)
 #Slightly wider because the cover messes it up
-end_time_entry = ttk.Entry(root, width=16, justify=CENTER)
+end_time_entry = ttk.Entry(mainframe, width=16, justify=CENTER)
 end_time_entry.grid(row=3, column=3)
 end_time_entry.bind('<Return>', startEvent)
 end_time_entry.bind('<Enter>', lambda a, m="end_entry": showHint(m))
 end_time_entry.bind('<FocusOut>', lambda a, m="end_time": updateEntries(m))
 # end_time_entry.bind('<FocusIn>', (lambda args: duration_entry.delete('0', 'end')))
-copy_end_time_btn = ttk.Button(root, text="C", command=lambda m="end": copyTimestamp(m), width=2) 
+copy_end_time_btn = ttk.Button(mainframe, text="C", command=lambda m="end": copyTimestamp(m), width=2) 
 copy_end_time_btn.grid(row=3, column=3, sticky=E)
 copy_end_time_btn.bind('<Enter>', lambda a, m="copy_button": showHint(m))
 
 #Duration stuff
-duration_msg = ttk.Label(root, text="Duration").grid(row=2, column=4)
-duration_entry = ttk.Entry(root, state=DISABLED, justify=CENTER, width=9)
+duration_msg = ttk.Label(mainframe, text="Duration").grid(row=2, column=4)
+duration_entry = ttk.Entry(mainframe, state=DISABLED, justify=CENTER, width=9)
 duration_entry.bind('<Enter>', lambda a, m="duration_entry": showHint(m))
 # duration_entry.bind('<FocusIn>', (lambda args: duration_entry.delete('0', 'end')))
 # duration_entry.bind('<FocusIn>', (lambda args: end_time_entry.delete('0', 'end')))
 duration_entry.grid(row=3, column=4)
 
 #Pre-Time stuff
-pre_time_msg = ttk.Label(root, text="Pre-time").grid(row=4, column=1)
-pre_time_entry = ttk.Entry(root, width=15, justify=CENTER)
+pre_time_msg = ttk.Label(mainframe, text="Pre-time").grid(row=4, column=1)
+pre_time_entry = ttk.Entry(mainframe, width=15, justify=CENTER)
 pre_time_entry.grid(row=5, column=1)
 pre_time_entry.bind('<Enter>', lambda a, m="pre-time_entry": showHint(m))
 pre_time_entry.bind('<FocusOut>', lambda a, m="pre_time": updateEntries(m))
 
 #Post-Time stuffs
-post_time_msg = ttk.Label(root, text="Post-time").grid(row=4, column=3)
-post_time_entry = ttk.Entry(root, width=15, justify=CENTER)
+post_time_msg = ttk.Label(mainframe, text="Post-time").grid(row=4, column=3)
+post_time_entry = ttk.Entry(mainframe, width=15, justify=CENTER)
 post_time_entry.grid(row=5, column=3)
 post_time_entry.bind('<Enter>', lambda a, m="post-time_entry": showHint(m))
 post_time_entry.bind('<FocusOut>', lambda a, m="post_time": updateEntries(m))
 
 #Start button
-start_btn = ttk.Button(root, text="Start", command=startEvent)
+start_btn = ttk.Button(mainframe, text="Start", command=startEvent)
 start_btn.grid(row=2, column=5)
 start_btn.bind('<Enter>', lambda a, m="start_button": showHint(m))
 
 #Stop button
-stop_btn = ttk.Button(root, text="Stop", command=lambda m=False: stopEvent(m))
+stop_btn = ttk.Button(mainframe, text="Stop", command=lambda m=False: stopEvent(m))
 stop_btn.grid(row=3, column=5)
 stop_btn.bind('<Enter>', lambda a, m="stop_button": showHint(m))
 
 #Hard Stop button
-hard_stop_btn = ttk.Button(root, text="Hard Stop", command=lambda m=True: stopEvent(m))
+hard_stop_btn = ttk.Button(mainframe, text="Hard Stop", command=lambda m=True: stopEvent(m))
 hard_stop_btn.grid(row=4, column=5)
 hard_stop_btn.bind('<Enter>', lambda a, m="hard_stop_button": showHint(m))
 
 #Loop check box
-loop_check = ttk.Checkbutton(root, state="selected", text="Loop", variable=loop)
+loop_check = ttk.Checkbutton(mainframe, state="selected", text="Loop", variable=loop)
 loop_check.grid(row=5, column=5)
 loop_check.bind('<Enter>', lambda a, m="loop_check": showHint(m))
 
 #Hint label
-hint_label = ttk.Label(root, text=HINT_TEXT["hello_message"], padding="0 5 0 5")
+hint_label = ttk.Label(mainframe, text=HINT_TEXT["hello_message"], padding="0 5 0 5")
 hint_label.grid(row=100, column=0, columnspan=7, rowspan=2)
 
 #Song info
@@ -648,50 +669,62 @@ else:
     #NEAREST, BOX, BILINEAR, HAMMING, BICUBIC, LANCZOS
     image = resizeImg(cover_img, 150, 150, Image.LANCZOS)
 album_cover = ImageTk.PhotoImage(image)
-album_cover_box = ttk.Label(root, image=album_cover)
+album_cover_box = ttk.Label(mainframe, image=album_cover)
 album_cover_box.grid(row=6, column=0, rowspan=50, columnspan=3, padx=10, pady=(10,0))
 album_cover_box.bind('<Button-1>', lambda a, m=album_link: openURL(m))
 album_cover_box.bind('<Enter>', lambda a, m="album_cover": showHint(m))
-song_label = ttk.Label(root, textvariable=song_name, padding="", font=("Segoe UI", 10, 'bold'))
+song_label = ttk.Label(mainframe, textvariable=song_name, padding="", font=("Segoe UI", 10, 'bold'))
 song_label.grid(row=10, column=3, columnspan=4, sticky=W, pady=(10,0))
 song_label.bind('<Button-1>', lambda a, m=song_link: openURL(m))
 song_label.bind('<Enter>', lambda a, m="song_label": showHint(m))
-album_label = ttk.Label(root, textvariable=album_name, padding="", font=("Segoe UI", 8))
+album_label = ttk.Label(mainframe, textvariable=album_name, padding="", font=("Segoe UI", 8))
 album_label.grid(row=11, column=3, columnspan=4, sticky=W)
 album_label.bind('<Button-1>', lambda a, m=album_link: openURL(m))
 album_label.bind('<Enter>', lambda a, m="album_label": showHint(m))
-artist_label = ttk.Label(root, textvariable=artist_name, padding="", font=("Segoe UI", 8))
+artist_label = ttk.Label(mainframe, textvariable=artist_name, padding="", font=("Segoe UI", 8))
 artist_label.grid(row=12, column=3, columnspan=4, sticky=W)
 artist_label.bind('<Button-1>', lambda a, m=artist_link: openURL(m))
 artist_label.bind('<Enter>', lambda a, m="artist_label": showHint(m))
 
 #Media button stuff
-pause_btn = ttk.Button(root, text="O", command=playpause, width=3)
+pause_btn = ttk.Button(mainframe, text="O", command=playpause, width=3)
 pause_btn.grid(row=14, column=3, padx=(30,0))
 pause_btn.bind('<Enter>', lambda a, m="pause_button": showHint(m))
-rewind_btn = ttk.Button(root, text="<", command=rewind, width=3)
+rewind_btn = ttk.Button(mainframe, text="<", command=rewind, width=3)
 rewind_btn.grid(row=14, column=3, padx=(0,30))
 rewind_btn.bind('<Enter>', lambda a, m="rewind_button": showHint(m))
-prev_btn = ttk.Button(root, text="<<", command=prevTrack, width=3)
+prev_btn = ttk.Button(mainframe, text="<<", command=prevTrack, width=3)
 prev_btn.grid(row=14, column=3, sticky=W, padx=(0,0))
 prev_btn.bind('<Enter>', lambda a, m="prev_button": showHint(m))
-next_btn = ttk.Button(root, text=">>", command=nextTrack, width=3)
+next_btn = ttk.Button(mainframe, text=">>", command=nextTrack, width=3)
 next_btn.grid(row=14, column=3, sticky=E, padx=(0,0))
 next_btn.bind('<Enter>', lambda a, m="next_button": showHint(m))
-clear_fields_btn = ttk.Button(root, text="Clear all", command=clearFields)
+clear_fields_btn = ttk.Button(mainframe, text="Clear all", command=clearFields)
 clear_fields_btn.grid(row=15, column=5)
 clear_fields_btn.bind('<Enter>', lambda a, m="clear_button": showHint(m))
 
 #Preset stuff
-save_preset_btn = ttk.Button(root, text="Save preset", command=savePreset)
+save_preset_btn = ttk.Button(mainframe, text="Save preset", command=savePreset)
 save_preset_btn.grid(row=14, column=5)
 save_preset_btn.bind('<Enter>', lambda a, m="save_preset_button": showHint(m))
 
 #Sidebar stuff
-menu_btn = ttk.Button(root, text="Hide menu", command=toggleMenu)
+menu_btn = ttk.Button(mainframe, text="Hide menu", command=toggleMenu)
 menu_btn.grid(row=16, column=5)
-preset_bar = ttk.Frame(root)
-preset_bar.grid(row=0, column=10, rowspan=100, columnspan=10)
+menu_btn.bind('<Enter>', lambda a, m='hide_presets_button': showHint(m))
+preset_bar_helper = ttk.Frame(root)
+preset_bar_helper.pack(side='top', fill=Y, expand=True)
+preset_bar_helper.bind('<Enter>', lambda a, m="select_preset": showHint(m))
+# preset_bar_helper.grid(row=0, column=10, rowspan=100, columnspan=10, sticky=N)
+preset_bar_canvas = Canvas(preset_bar_helper)
+preset_bar_canvas.config(scrollregion=preset_bar_canvas.bbox("all"), height=1, width=200)
+preset_bar_canvas.pack(side='left', fill=BOTH)
+preset_bar = ttk.Frame(preset_bar_canvas)
+preset_bar.pack(fill=BOTH, side=TOP)
+# preset_bar_canvas.create_window((0,0), window=preset_bar_helper, anchor='nw')
+scrollbar = ttk.Scrollbar(preset_bar_helper, orient=VERTICAL, command=preset_bar_canvas.yview)
+scrollbar.pack(side='right', fill=Y)
+preset_bar_canvas.configure(yscrollcommand=scrollbar.set)
 
 loadPreset()
 
