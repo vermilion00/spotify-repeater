@@ -7,6 +7,9 @@
 #Add volume fade option
 #Scrolling song info labels
 
+#TODO:
+#Clear all button on during loop keeps looping 0 seconds
+
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from string_to_time import StringToTime as stt
@@ -28,7 +31,7 @@ from tkscrolledframe import ScrolledFrame
 NOT_PLAYING_IMG = ".presets/not_playing.jpg"
 SAVE_DIR = ".presets"
 SAVE_PATH = ".presets/savefile.txt"
-FORBIDDEN_CHARS = r'[\\/:*?"<>|]'
+FORBIDDEN_CHARS = r'[\\/:*?"<>|]' #Not allowed in windows file names
 test = r'Test\<>///|||???::*'
 
 #TODO: Make sure this works on other platforms
@@ -152,104 +155,115 @@ def startEvent(event=None):
     global start_loop_flag
     global stop
     global first_loop
+    stop = True
     if duration > 0:
         start_loop_flag = True
         start_inf_flag = False
         first_loop = True
-        stop = True
     elif start_time > 0:
         start_inf_flag = True
         start_loop_flag = False
     else:
-        stop = True
         start_inf_flag = False
         start_loop_flag = False
+
+#On separate thread
+def startService():
+    global start_inf_flag
+    global start_loop_flag
+    while True:
+        time.sleep(0.1)
+        if start_inf_flag:
+            #Functions called by thread stay on that thread
+            startInf()
+        elif start_loop_flag:
+            startLoop()
 
 #On separate thread
 def startInf():
     global start_inf_flag
     global start_time
     global pre_time
-    while True:
-        if start_inf_flag:
-            if pre_time > 0:
-                try:
-                    sp.pause_playback()
-                except:
-                    pass
-                time.sleep(pre_time)
-            start_inf_flag = False
-            try:
-                #While the rest is in s, this requires ms
-                sp.seek_track(int(start_time * 1000))
-            except:
-                print("Something went wrong while trying to seek.")
-            #Trying to start playback when already playing gives an error
-            try:
-                sp.start_playback()
-            except:
-                pass
-        else:
-            time.sleep(0.1)
+    # while True:
+    # if start_inf_flag:
+    start_inf_flag = False
+    if pre_time > 0:
+        try:
+            sp.pause_playback()
+        except:
+            pass
+        time.sleep(pre_time)
+    try:
+        #While the rest is in s, this requires ms
+        sp.seek_track(int(start_time * 1000))
+    except:
+        print("Something went wrong while trying to seek.")
+    #Trying to start playback when already playing gives an error
+    try:
+        sp.start_playback()
+    except:
+        pass
+    # else:
+    #     time.sleep(0.1)
 
 #On separate thread
 def startLoop():
     global start_loop_flag
-    global stop
-    global loop
     global start_time
     global end_time
+    global pre_time
     global post_time
+    global stop
+    global loop
+    # global start_time
+    # global end_time
+    # global pre_time
+    # global post_time
     global first_loop
-    global restart_loop
-    global duration
-    while True:
-        if start_loop_flag:
-            if stop:
-                stop = False
-            if pre_time > 0 and first_loop:
-                first_loop = False
-                try:
-                    sp.pause_playback()
-                except:
-                    pass
-                time.sleep(pre_time)
-            start_loop_flag = False
-            try:
-                #While the rest is in s, this requires ms
-                sp.seek_track(int(start_time * 1000))
-            except:
-                print("Seeking track failed")
+    # while True:
+    # if start_loop_flag:
+    start_loop_flag = False
+    if stop:
+        stop = False
+    if pre_time > 0 and first_loop:
+        first_loop = False
+        try:
+            sp.pause_playback()
+        except:
+            pass
+        time.sleep(pre_time)
+    try:
+        #While the rest is in s, this requires ms
+        sp.seek_track(int(start_time * 1000))
+    except:
+        print("Seeking track failed")
 
-            #Trying to start playback when already playing gives an error
-            try:
-                sp.start_playback()
-            except:
-                pass
-
-            try:
-                temp_time = time.time()
-                while not stop and time.time() < (temp_time + duration):
-                    time.sleep(0.1)
-            except:
-                print("Start or end time is set incorrectly")
-            
-            #Assume music is paused if stop is set
-            if not stop:
-                try:
-                    sp.pause_playback()
-                except:
-                    pass
-
-            #Exit condition
-            if loop.get() == True and not stop:
-                start_loop_flag = True
-                if post_time > 0:
-                    temp_time = time.time()
-                    while not stop and time.time() < (temp_time + post_time):
-                        time.sleep(0.1)
-        else:
+    #Trying to start playback when already playing gives an error
+    try:
+        sp.start_playback()
+    except:
+        pass
+    try:
+        temp_time = time.time()
+        while not stop and time.time() < (temp_time + end_time - start_time):
             time.sleep(0.1)
+    except:
+        print("Start or end time is set incorrectly")
+    #Assume music is paused if stop is set
+    if not stop:
+        try:
+            sp.pause_playback()
+        except:
+            pass
+    #Exit condition
+    if loop.get() == True and not stop and (end_time - start_time) > 0:
+        start_loop_flag = True
+        if post_time > 0:
+            temp_time = time.time()
+            while not stop and time.time() < (temp_time + post_time):
+                time.sleep(0.1)
+    else:
+        start_loop_flag = False
 
 def copyTimestamp(btn):
     global start_time
@@ -515,6 +529,29 @@ def createPreset(i, data, mode="from_buffer"):
     # album_cover_box = ttk.Label(test_frame, image=album_cover)
     # album_cover_box.grid(row=0, column=0, rowspan=3)
 
+#Spotipy config
+client_id = getenv('spotipy_client_id')
+client_secret = getenv('spotipy_client_secret')
+SCOPE = ("user-modify-playback-state", "user-read-currently-playing")
+sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id,client_secret=client_secret,redirect_uri="http://127.0.0.1:3000",scope=SCOPE))
+#Starts playback of the song
+#sp.start_playback(uris=["spotify:track:02zclmxRto3GAUBdtV7D8i"])
+
+#Threading stuff
+service_thread = threading.Thread(target=startService)
+# inf_thread = threading.Thread(target=startInf)
+# loop_thread = threading.Thread(target=startLoop)
+info_thread = threading.Thread(target=updateInfo)
+# inf_thread.daemon = True
+# loop_thread.daemon = True
+service_thread.daemon = True
+info_thread.daemon = True
+# loop_thread.start()
+# inf_thread.start()
+service_thread.start()
+info_thread.start()
+
+#TKinter stuff
 root = Tk()
 root.title("Spotify Repeater")
 # root.geometry("660x350")
@@ -524,7 +561,6 @@ root.resizable(False, False)
 #root.minsize()
 #root.maxsize()
 loop = BooleanVar(value=True)
-
 start_time = 0
 end_time = 0
 pre_time = 0
@@ -543,7 +579,6 @@ prev_album_name = ""
 prev_song_name = ""
 menu_visibility = True
 preset_num = 0
-
 artist_name = StringVar()
 album_name = StringVar()
 song_name = StringVar()
@@ -556,27 +591,6 @@ artist_link = ""
 preset_name = StringVar()
 cover_img_name = ""
 
-#Spotipy config
-client_id = getenv('spotipy_client_id')
-client_secret = getenv('spotipy_client_secret')
-SCOPE = ("user-modify-playback-state", "user-read-currently-playing")
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id,client_secret=client_secret,redirect_uri="http://127.0.0.1:3000",scope=SCOPE))
-
-#Starts playback of the song
-#sp.start_playback(uris=["spotify:track:02zclmxRto3GAUBdtV7D8i"])
-
-#Threading stuff
-inf_thread = threading.Thread(target=startInf)
-loop_thread = threading.Thread(target=startLoop)
-info_thread = threading.Thread(target=updateInfo)
-inf_thread.daemon = True
-loop_thread.daemon = True
-info_thread.daemon = True
-loop_thread.start()
-inf_thread.start()
-info_thread.start()
-
-#TKinter stuff
 mainframe = ttk.Frame(root, padding="1 1 1 1", width=500, height=350)
 # mainframe.pack_propagate(False)
 mainframe.pack(side='left', anchor=NW)
