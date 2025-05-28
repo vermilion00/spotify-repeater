@@ -22,8 +22,8 @@ import requests
 from io import BytesIO
 from webbrowser import open_new
 import json
-# from TkinterSidebar2 import *
 from re import sub
+from tkscrolledframe import ScrolledFrame
 
 NOT_PLAYING_IMG = ".presets/not_playing.jpg"
 SAVE_DIR = ".presets"
@@ -83,6 +83,7 @@ data = {
 }
 
 def updateInfo():
+    global update_info_flag
     global artist_name
     global album_name
     global song_name
@@ -99,50 +100,53 @@ def updateInfo():
     global song_label
     global prev_album_name
     global prev_song_name
-    info = sp.current_user_playing_track()
-    #If a song is playing, info won't be None
-    if info != None:
-        #song_duration.set(stt.convertTimeToString(info['item']['duration_ms'], return_format=2))
-        if prev_song_name != info['item']['name']:
-            song_name.set(info['item']['name'])
-            prev_song_name = info['item']['name']
-            song_link = info['item']['uri']
-            song_label.bind('<Button-1>', lambda a, m=song_link: open_new(m))
-        #Probably not the best way to update the picture
-        #Configure doesn't seem to work
-        if prev_album_name != info['item']['album']['name']:
-            prev_album_name = info['item']['album']['name']
-            #Artist names
-            artist_name_buf = ""
-            num_artists = 0
-            artists = info['item']['artists']
-            for artist in artists:
-                num_artists += 1
-                if num_artists == 1:
-                    artist_name_buf += artist['name']
-                else:
-                    artist_name_buf += ", " + artist['name']
+    while True:
+        if update_info_flag:
+            update_info_flag = False
+            info = sp.current_user_playing_track()
+            #If a song is playing, info won't be None
+            if info != None:
+                #song_duration.set(stt.convertTimeToString(info['item']['duration_ms'], return_format=2))
+                if prev_song_name != info['item']['name']:
+                    song_name.set(info['item']['name'])
+                    prev_song_name = info['item']['name']
+                    song_link = info['item']['uri']
+                    song_label.bind('<Button-1>', lambda a, m=song_link: open_new(m))
+                #Probably not the best way to update the picture
+                #Configure doesn't seem to work
+                if prev_album_name != info['item']['album']['name']:
+                    prev_album_name = info['item']['album']['name']
+                    #Artist names
+                    artist_name_buf = ""
+                    num_artists = 0
+                    artists = info['item']['artists']
+                    for artist in artists:
+                        num_artists += 1
+                        if num_artists == 1:
+                            artist_name_buf += artist['name']
+                        else:
+                            artist_name_buf += ", " + artist['name']
 
-            artist_name.set(artist_name_buf)
-            album_name.set(info['item']['album']['name'])
-            #release_date.set(info['item']['album']['release_date'])
-            #Only the first artist
-            artist_link = info['item']['artists'][0]['uri']
-            album_link = info['item']['album']['uri']
-            #0 is the highest res, 2 the lowest
-            cover_img = requests.get(info['item']['album']['images'][IMG_QUALITY['mid']]['url']).content
-            image = resizeImg(cover_img, 150, 150, Image.LANCZOS)
-            album_cover = ImageTk.PhotoImage(image)
-            album_cover_box = Label(mainframe, image=album_cover)
-            album_cover_box.grid(row=6, column=0, rowspan=30, columnspan=3, padx=10, pady=(10,0))
-            album_cover_box.bind('<Enter>', lambda a, m="album_cover": showHint(m))
-            album_cover_box.bind('<Button-1>', lambda a, m=album_link: openURL(m))
-            artist_label.bind('<Button-1>', lambda a, m=artist_link: openURL(m))
-            album_label.bind('<Button-1>', lambda a, m=album_link: openURL(m))
-    else:
-        song_name.set("Not playing")
-        album_name.set("Not playing")
-        artist_name.set("Not playing")
+                    artist_name.set(artist_name_buf)
+                    album_name.set(info['item']['album']['name'])
+                    #release_date.set(info['item']['album']['release_date'])
+                    #Only the first artist
+                    artist_link = info['item']['artists'][0]['uri']
+                    album_link = info['item']['album']['uri']
+                    #0 is the highest res, 2 the lowest
+                    cover_img = requests.get(info['item']['album']['images'][IMG_QUALITY['mid']]['url']).content
+                    image = resizeImg(cover_img, 150, 150, Image.LANCZOS)
+                    album_cover = ImageTk.PhotoImage(image)
+                    album_cover_box = Label(mainframe, image=album_cover)
+                    album_cover_box.grid(row=6, column=0, rowspan=30, columnspan=3, padx=10, pady=(10,0))
+                    album_cover_box.bind('<Enter>', lambda a, m="album_cover": showHint(m))
+                    album_cover_box.bind('<Button-1>', lambda a, m=album_link: openURL(m))
+                    artist_label.bind('<Button-1>', lambda a, m=artist_link: openURL(m))
+                    album_label.bind('<Button-1>', lambda a, m=album_link: openURL(m))
+            else:
+                song_name.set("Not playing")
+                album_name.set("Not playing")
+                artist_name.set("Not playing")
 
 def startEvent(event=None):
     global duration
@@ -357,7 +361,9 @@ def resizeImg(img_file, x=150, y=150, alg=Image.LANCZOS):
 
 #Put peroidic calls here
 def update():
-    updateInfo()
+    global update_info_flag
+    # updateInfo()
+    update_info_flag = True
     root.after(1000, update)
 
 def savePreset():
@@ -463,13 +469,13 @@ def toggleMenu():
         # preset_bar_helper.grid_forget()
         preset_bar_helper.pack_forget()
         menu_visibility = False
-        menu_btn.config(text="Show menu")
+        menu_btn.config(text="Show presets")
         menu_btn.bind('<Enter>', lambda a, m='show_presets_button': showHint(m))
     else:
         preset_bar_helper.pack(side='right', anchor=NE)
         # preset_bar_helper.grid(row=0, column=10, rowspan=100, sticky=N)
         menu_visibility = True
-        menu_btn.config(text="Hide menu")
+        menu_btn.config(text="Hide presets")
         menu_btn.bind('<Enter>', lambda a, m='hide_presets_button': showHint(m))
 
 # def updatePresets():
@@ -502,7 +508,7 @@ def createPreset(i, data, mode="from_buffer"):
     # album_label.grid(row=1, column=3, columnspan=5)
     # artist_label = ttk.Label(preset_frame, text=artist_name, font=('Segoe UI', 8))
     # artist_label.grid(row=2, column=3, columnspan=5)
-    preset_frame.pack(fill=X)
+    preset_frame.pack(fill=X, expand=True)
     # if mode == "from_buffer":
     #     image = resizeImg(cover_img, 80, 80, Image.LANCZOS)
     # elif mode == "from_disk":
@@ -537,6 +543,7 @@ restart_loop = False
 #Necessary, since they're on separate threads
 start_inf_flag = False
 start_loop_flag = False
+update_info_flag = True
 hint_label_text = ""
 prev_album_name = ""
 prev_song_name = ""
@@ -567,13 +574,17 @@ sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id,client_secret
 #Threading stuff
 inf_thread = threading.Thread(target=startInf)
 loop_thread = threading.Thread(target=startLoop)
+info_thread = threading.Thread(target=updateInfo)
 inf_thread.daemon = True
 loop_thread.daemon = True
+info_thread.daemon = True
 loop_thread.start()
 inf_thread.start()
+info_thread.start()
 
 #TKinter stuff
-mainframe = ttk.Frame(root, padding="1 1 1 1")
+mainframe = ttk.Frame(root, padding="1 1 1 1", width=500, height=350)
+# mainframe.pack_propagate(False)
 mainframe.pack(side='left', anchor=NW)
 
 #Hello message
@@ -709,30 +720,17 @@ save_preset_btn.grid(row=14, column=5)
 save_preset_btn.bind('<Enter>', lambda a, m="save_preset_button": showHint(m))
 
 #Sidebar stuff
-menu_btn = ttk.Button(mainframe, text="Hide menu", command=toggleMenu)
+menu_btn = ttk.Button(mainframe, text="Hide presets", command=toggleMenu)
 menu_btn.grid(row=16, column=5)
 menu_btn.bind('<Enter>', lambda a, m='hide_presets_button': showHint(m))
-preset_bar_helper = ttk.Frame(root)
-preset_bar_helper.pack(side='top', fill=Y, expand=True)
-preset_bar_helper.bind('<Enter>', lambda a, m="select_preset": showHint(m))
-# preset_bar_helper.grid(row=0, column=10, rowspan=100, columnspan=10, sticky=N)
-preset_bar_canvas = Canvas(preset_bar_helper)
-preset_bar_canvas.config(scrollregion=preset_bar_canvas.bbox("all"), height=1, width=200)
-preset_bar_canvas.pack(side='left', fill=BOTH)
-preset_bar = ttk.Frame(preset_bar_canvas)
-preset_bar.pack(fill=BOTH, side=TOP)
-# preset_bar_canvas.create_window((0,0), window=preset_bar_helper, anchor='nw')
-scrollbar = ttk.Scrollbar(preset_bar_helper, orient=VERTICAL, command=preset_bar_canvas.yview)
-scrollbar.pack(side='right', fill=Y)
-preset_bar_canvas.configure(yscrollcommand=scrollbar.set)
+
+preset_bar_helper = ScrolledFrame(root, width=205, height=347, scrollbars='vertical')
+preset_bar_helper.pack(side='top', expand=True, fill='both')
+preset_bar_helper.bind_scroll_wheel(root)
+preset_bar = preset_bar_helper.display_widget(Frame)
+# preset_bar.pack(fill='both', expand=True)
 
 loadPreset()
-
-# sb_frame = ttk.Frame(root)
-# sb_frame.grid(row=0, column=15)
-# sidebar = Sidebar(sb_frame)
-# sidebar.add_spacer("Presets")
-# sidebar.add_button(text="Test", command=lambda: print("Test"), icon="presets/Rosenrot.jpg")
 
 #Focus on start time box when window opens
 start_time_entry.focus_force()
