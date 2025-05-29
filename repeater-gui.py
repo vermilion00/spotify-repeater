@@ -6,8 +6,10 @@
 #Scrolling song info labels
 
 #TODO:
+#Fix song playing for a split second when preset is loaded
 #Fix main view shifting around when preset view is expanded
 
+#MARK: Imports
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from string_to_time import StringToTime as stt
@@ -87,6 +89,11 @@ HINT_TEXT = {
 
 data = {
 
+}
+
+#Stub for later features
+settings = {
+    'show_presets': True
 }
 
 #MARK: Update Info
@@ -276,6 +283,7 @@ def copyTimestamp(btn):
         duration_entry.insert(0, s.translateTimeToString(duration))
         duration_entry.config(state=DISABLED)
 
+#MARK: Stop Event
 def stopEvent(pause=False):
     global stop
     global start_loop_flag
@@ -316,7 +324,6 @@ def resizeImg(img_file, x=150, y=150, alg=Image.LANCZOS):
     img = img.resize((x, y), alg)
     return img
 
-#TODO: Update to StringVar
 def showHint(field):
     global hint_label
     hint_label.configure(text=HINT_TEXT[field])
@@ -361,6 +368,8 @@ def savePreset():
     global loop
     global duration
     global cover_img
+    global menu_visibility
+    global preset_num
     
     #Don't allow saving "not playing" presets
     if song_name.get() != "Not playing":
@@ -369,10 +378,11 @@ def savePreset():
         image.save(img_path)
         #TODO: If data[0] becomes the setting dict, remove the +1
         i = len(data.keys()) + 1
-        if preset_name.get() == "":
+        name = preset_name.get()
+        #Clear the preset name field
+        preset_name.set("")
+        if name == "":
             name = f"Preset {i}"
-        else:
-            name = preset_name.get() 
         preset = {
             "preset_name": name,
             "song_name": song_name.get(),
@@ -391,7 +401,10 @@ def savePreset():
         }
         data[str(i)] = preset
         json.dump(data, open(SAVE_PATH, 'w'), indent=4)
+        preset_num += 1
         createPreset(i, preset, "from_buffer")
+        if not menu_visibility:
+            toggleMenu()
 
 #MARK: Load preset
 def loadPreset(preset):
@@ -416,49 +429,48 @@ def loadPreset(preset):
     global duration #int
     global duration_entry
     global loop #BooleanVar
-    preset = str(preset)
-    print(preset)
-    start_time = data[preset]['start_time']
-    start_time_entry.delete('0', 'end')
-    start_time_entry.insert(0, s.translateTimeToString(start_time))
-    end_time = data[preset]['end_time']
-    end_time_entry.delete('0', 'end')
-    end_time_entry.insert(0, s.translateTimeToString(end_time))
-    pre_time = data[preset]['pre_time']
-    pre_time_entry.delete('0', 'end')
-    pre_time_entry.insert(0, s.translateTimeToString(pre_time))
-    post_time = data[preset]['post_time']
-    post_time_entry.delete('0', 'end')
-    post_time_entry.insert(0, s.translateTimeToString(post_time))
-    song_name.set(data[preset]['song_name'])
-    song_link = data[preset]['song_link']
-    song_label.bind('<Button-1>', lambda a, m=song_link: openURL(m))
-    album_name.set(data[preset]['album_name'])
-    album_link = data[preset]['album_link']
-    #Start and stop playback immediately to avoid replacing the info
-    sp.start_playback(context_uri=album_link, offset={"uri": song_link})
-    sp.pause_playback()
-    album_label.bind('<Button-1>', lambda a, m=album_link: openURL(m))
-    artist_name.set(data[preset]['artist_name'])
-    artist_link = data[preset]['artist_link']
-    artist_label.bind('<Button-1>', lambda a, m=artist_link: openURL(m))
-    loop.set(data[preset]['loop'])
-    if end_time <= start_time:
-        duration = 0
-        duration_entry.config(state=NORMAL)
-        duration_entry.delete('0', 'end')
-        duration_entry.insert(0, "")
-        duration_entry.config(state=DISABLED)
-    else:
-        duration = end_time - start_time
-        duration_entry.config(state=NORMAL)
-        duration_entry.delete('0', 'end')
-        duration_entry.insert(0, s.translateTimeToString(duration))
-        duration_entry.config(state=DISABLED)
-
-    #TODO: Is it worth outsourcing this tiny bit of code? Prolly not
-    #Select preset code
-    selectPreset(preset)
+    global selected_preset
+    if preset != selected_preset:
+        preset = str(preset)
+        start_time = data[preset]['start_time']
+        start_time_entry.delete('0', 'end')
+        start_time_entry.insert(0, s.translateTimeToString(start_time))
+        end_time = data[preset]['end_time']
+        end_time_entry.delete('0', 'end')
+        end_time_entry.insert(0, s.translateTimeToString(end_time))
+        pre_time = data[preset]['pre_time']
+        pre_time_entry.delete('0', 'end')
+        pre_time_entry.insert(0, s.translateTimeToString(pre_time))
+        post_time = data[preset]['post_time']
+        post_time_entry.delete('0', 'end')
+        post_time_entry.insert(0, s.translateTimeToString(post_time))
+        song_name.set(data[preset]['song_name'])
+        song_link = data[preset]['song_link']
+        song_label.bind('<Button-1>', lambda a, m=song_link: openURL(m))
+        album_name.set(data[preset]['album_name'])
+        album_link = data[preset]['album_link']
+        #Start and stop playback immediately to avoid replacing the info
+        sp.start_playback(context_uri=album_link, offset={"uri": song_link})
+        sp.pause_playback()
+        album_label.bind('<Button-1>', lambda a, m=album_link: openURL(m))
+        artist_name.set(data[preset]['artist_name'])
+        artist_link = data[preset]['artist_link']
+        artist_label.bind('<Button-1>', lambda a, m=artist_link: openURL(m))
+        loop.set(data[preset]['loop'])
+        if end_time <= start_time:
+            duration = 0
+            duration_entry.config(state=NORMAL)
+            duration_entry.delete('0', 'end')
+            duration_entry.insert(0, "")
+            duration_entry.config(state=DISABLED)
+        else:
+            duration = end_time - start_time
+            duration_entry.config(state=NORMAL)
+            duration_entry.delete('0', 'end')
+            duration_entry.insert(0, s.translateTimeToString(duration))
+            duration_entry.config(state=DISABLED)
+        #Select preset code
+        selectPreset(preset)
 
 #MARK: Select Preset
 def selectPreset(preset):
@@ -474,16 +486,25 @@ def selectPreset(preset):
 #MARK: Load from disk
 def loadPresetsfromDisk():
     global data
+    global preset_num
     try:
         with open(SAVE_PATH) as file:
             data = json.load(file)
         for i in data.keys():
-            # if i == "0":
-            #     continue
+            if i == "0":
+                continue
             #TODO: If data[0] becomes setting dict, remove + 1
+            preset_num += 1
             createPreset(i, data[i], mode="from_disk")
     except:
         pass
+    #Expand preset bar at open
+    if settings['show_presets'] == True and preset_num > 0:
+        toggleMenu()
+        # preset_bar_helper.pack(side='top', expand=True, fill='both')
+        # menu_visibility = True
+        # menu_btn.config(text="Hide presets")
+        # menu_btn.bind('<Enter>', lambda a, m='hide_presets_button': showHint(m))
 
 #MARK: Create Preset
 def createPreset(i, data, mode="from_buffer"):
@@ -493,7 +514,6 @@ def createPreset(i, data, mode="from_buffer"):
     global preset_list
     global preset_dict
     i = int(i)
-    preset_num += 1
     preset_frame = ttk.Frame(preset_bar, padding="", borderwidth=5, relief=RAISED)
     preset_frame.bind('<Button-1>', lambda a, m=preset_num: loadPreset(m))
     preset_name = data['preset_name']
@@ -541,6 +561,7 @@ def deletePreset():
     global selected_preset
     global preset_dict
     global preset_num
+    global menu_visibility
     #Do nothing if no preset is selected
     if selected_preset != 0:
         #Presets are 1-indexed
@@ -548,16 +569,14 @@ def deletePreset():
         preset_dict[selected_preset]['preset_frame'].pack_forget()
         #Move presets in dict and rebind loading
         for i in range(selected_preset, preset_num):
-            preset_dict.update({i: preset_dict[i+1]})
-            data.update({str(i): data[str(i+1)]})
+            if preset_num > 1:
+                preset_dict.update({i: preset_dict[i+1]})
+                data.update({str(i): data[str(i+1)]})
             preset_dict[i]['preset_frame'].bind('<Button-1>', lambda a, m=i: loadPreset(m))
             preset_dict[i]['name_label'].bind('<Button-1>', lambda a, m=i: loadPreset(m))
             preset_dict[i]['song_label'].bind('<Button-1>', lambda a, m=i: loadPreset(m))
             preset_dict[i]['time_label'].bind('<Button-1>', lambda a, m=i: loadPreset(m))
             preset_dict[i]['album_cover_box'].bind('<Button-1>', lambda a, m=i: loadPreset(m))
-        #Remove the last preset
-        preset_dict.pop(preset_num)
-        data.pop(str(preset_num), None)
         #Check if another preset uses the same image
         selected_path = data[str(selected_preset)]['img_path']
         delete_path = True
@@ -574,11 +593,16 @@ def deletePreset():
         #Delete the image
         if path.exists(data[str(selected_preset)]['img_path']) and delete_path:
             remove(data[str(selected_preset)]['img_path'])
+        #Remove the last preset
+        preset_dict.pop(preset_num)
+        data.pop(str(preset_num), None)
         #Write new dict to file
         json.dump(data, open(SAVE_PATH, 'w'), indent=4)
         #Reset preset counters
         preset_num -= 1
         selected_preset = 0
+        if preset_num == 0 and menu_visibility:
+            toggleMenu()
 
 #MARK: Update Entries
 def updateEntries(entry):
@@ -636,7 +660,7 @@ def updateEntries(entry):
                 duration_entry.insert(0, s.translateTimeToString(duration))
                 duration_entry.config(state=DISABLED)
 
-#MARK: Toggle
+#MARK: Toggle Menu
 def toggleMenu():
     global menu_visibility
     if menu_visibility:
@@ -645,7 +669,7 @@ def toggleMenu():
         menu_btn.config(text="Show presets")
         menu_btn.bind('<Enter>', lambda a, m='show_presets_button': showHint(m))
     else:
-        preset_bar_helper.pack(side='right', anchor=NE)
+        preset_bar_helper.pack(side='top', expand=True, fill='both')
         menu_visibility = True
         menu_btn.config(text="Hide presets")
         menu_btn.bind('<Enter>', lambda a, m='hide_presets_button': showHint(m))
@@ -690,7 +714,7 @@ start_loop_flag = False
 hint_label_text = ""
 prev_album_name = ""
 prev_song_name = ""
-menu_visibility = True
+menu_visibility = False
 preset_num = 0
 loop = BooleanVar(value=True)
 artist_name = StringVar()
@@ -851,11 +875,11 @@ preset_name_entry.bind('<Enter>', lambda a, m="preset_name_entry": showHint(m))
 preset_name_entry.bind('<FocusOut>', lambda a, m="preset_name_entry": updateEntries(m))
 
 #MARK: Sidebar stuff
-menu_btn = ttk.Button(mainframe, text="Hide presets", command=toggleMenu)
+menu_btn = ttk.Button(mainframe, text="Show presets", command=toggleMenu)
 menu_btn.grid(row=17, column=5)
 menu_btn.bind('<Enter>', lambda a, m='hide_presets_button': showHint(m))
 preset_bar_helper = ScrolledFrame(root, width=198, height=347, scrollbars='vertical')
-preset_bar_helper.pack(side='top', expand=True, fill='both')
+# preset_bar_helper.pack(side='top', expand=True, fill='both')
 preset_bar_helper.bind_scroll_wheel(root)
 preset_bar = preset_bar_helper.display_widget(Frame)
 preset_bar_helper.bind('<Enter>', lambda a, m="preset_bar": showHint(m))
