@@ -823,10 +823,12 @@ if info == None:
     try:
         stock_img = open(NOT_PLAYING_IMG, 'br')
         cover_img = stock_img.read()
+        image = Image.open(BytesIO(cover_img))
     except:
-        cover_img = requests.get("https://github.com/vermilion00/spotify-repeater/blob/main/images/not_playing.jpg").content
-    #Need to open as BytesIO for it to work
-    image = Image.open(BytesIO(cover_img))
+        cover_img = requests.get("https://raw.githubusercontent.com/vermilion00/spotify-repeater/refs/heads/main/images/not_playing.jpg").content
+        #Need to open as BytesIO for it to work
+        image = Image.open(BytesIO(cover_img))
+        image.save(NOT_PLAYING_IMG)
 else:
     cover_img = requests.get(info['item']['album']['images'][IMG_QUALITY['mid']]['url']).content
     #NEAREST, BOX, BILINEAR, HAMMING, BICUBIC, LANCZOS
