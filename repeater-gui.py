@@ -4,6 +4,7 @@
 #Add hotkey to start while ignoring pre-time
 #Add volume fade option
 #Scrolling song info labels
+#Add folders to preset sidebar (group presets by song etc)
 
 #TODO:
 #Fix song playing for a split second when preset is loaded
@@ -12,6 +13,8 @@
 #authorization is given and crashes. Wait until authorization is given before proceeding
 #Add icons
 #Do something else with updateInfoThread while not updating info
+#Since this app will forever be in development mode, add instructions for users
+#to make their own spotify app and read client-id from a file
 
 #MARK: Imports
 import spotipy
