@@ -820,8 +820,11 @@ hint_label.grid(row=100, column=0, columnspan=7, rowspan=2)
 #Create image from buffer
 info = sp.current_user_playing_track()
 if info == None:
-    stock_img = open(NOT_PLAYING_IMG, 'br')
-    cover_img = stock_img.read()
+    try:
+        stock_img = open(NOT_PLAYING_IMG, 'br')
+        cover_img = stock_img.read()
+    except:
+        cover_img = requests.get("https://github.com/vermilion00/spotify-repeater/blob/main/images/not_playing.jpg").content
     #Need to open as BytesIO for it to work
     image = Image.open(BytesIO(cover_img))
 else:
