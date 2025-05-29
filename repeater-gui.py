@@ -83,8 +83,8 @@ HINT_TEXT = {
     "show_presets_button": "Shows the preset sidebar.",
     "hide_presets_button": "Hides the preset sidebar.",
     "preset_bar": "Click on a preset to be able to load or delete it.",
-    "delete_preset_button": "Delete the selected preset.",
-    "preset_name_entry": "Enter the name for the saved preset"
+    "delete_preset_button": "Deletes the selected preset.",
+    "preset_name_entry": "Enter the name for the saved preset."
 }
 
 data = {
@@ -869,6 +869,9 @@ save_preset_btn.grid(row=15, column=5)
 save_preset_btn.bind('<Enter>', lambda a, m="save_preset_button": showHint(m))
 delete_preset_btn = ttk.Button(mainframe, text="Delete preset", command=deletePreset)
 delete_preset_btn.grid(row=16, column=5)
+delete_preset_btn.bind('<Enter>', lambda a, m="delete_preset_button": showHint(m))
+preset_name_label = ttk.Label(mainframe, text="Preset name", justify=CENTER)
+preset_name_label.grid(row=14, column=4)
 preset_name_entry = ttk.Entry(mainframe, textvariable=preset_name, width=15, justify=CENTER)
 preset_name_entry.grid(row=15, column=4)
 preset_name_entry.bind('<Enter>', lambda a, m="preset_name_entry": showHint(m))
@@ -877,7 +880,7 @@ preset_name_entry.bind('<FocusOut>', lambda a, m="preset_name_entry": updateEntr
 #MARK: Sidebar stuff
 menu_btn = ttk.Button(mainframe, text="Show presets", command=toggleMenu)
 menu_btn.grid(row=17, column=5)
-menu_btn.bind('<Enter>', lambda a, m='hide_presets_button': showHint(m))
+menu_btn.bind('<Enter>', lambda a, m='show_presets_button': showHint(m))
 preset_bar_helper = ScrolledFrame(root, width=198, height=347, scrollbars='vertical')
 # preset_bar_helper.pack(side='top', expand=True, fill='both')
 preset_bar_helper.bind_scroll_wheel(root)
