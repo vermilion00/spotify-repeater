@@ -463,7 +463,10 @@ def loadPreset(preset):
         album_name.set(data[preset]['album_name'])
         album_link = data[preset]['album_link']
         #Start and stop playback immediately to avoid replacing the info
-        sp.start_playback(context_uri=album_link, offset={"uri": song_link})
+        try:
+            sp.start_playback(context_uri=album_link, offset={"uri": song_link})
+        except:
+            pass
         #TODO: Add this back when I figure out how to pause it immediately
         # sp.pause_playback()
         album_label.bind('<Button-1>', lambda a, m=album_link: openURL(m))

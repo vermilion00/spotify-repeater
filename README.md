@@ -9,7 +9,5 @@ You can also save and recall your sections by saving them as presets.
 ![GUI_with_presets](https://github.com/vermilion00/spotify-repeater/blob/main/images/gui_with_presets.png)
 
 This uses my library [string_to_time](https://github.com/vermilion00/py-stringtotime) for the input. Accepted formats are hh:mm:ss.xxx and \_\_h \_\_m \_\_s \_\_\_ms, with and without spaces.
-> [!WARNING]
-> Make sure that Spotify is playing before starting this program up!
 
 
