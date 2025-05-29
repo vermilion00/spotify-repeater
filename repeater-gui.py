@@ -8,8 +8,9 @@
 #Scrolling song info labels
 
 #TODO:
-#Selecting a preset should configure relief to sunken and set all others to raised
+#When deleting a preset, don't forget to delete it from the list
 #Save selected preset to be able to delete it
+#Playing a song from the preset infinitely loops the song, add album to context_uri when calling
 
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
@@ -367,7 +368,6 @@ def savePreset():
     global loop
     global duration
     global cover_img
-    # global preset_num
     
     #Don't allow saving "not playing" presets
     if song_name.get() != "Not playing":
@@ -400,7 +400,7 @@ def savePreset():
         json.dump(data, open(SAVE_PATH, 'w'), indent=4)
         createPreset(i, preset, "from_buffer")
 
-#MARK: Load presets
+#MARK: Load preset
 def loadPreset(preset):
     global data
     global start_time #int
@@ -423,7 +423,6 @@ def loadPreset(preset):
     global duration #int
     global duration_entry
     global loop #BooleanVar
-    global selected_preset
     preset = str(preset)
     start_time = data[preset]['start_time']
     start_time_entry.delete('0', 'end')
@@ -439,12 +438,12 @@ def loadPreset(preset):
     post_time_entry.insert(0, s.translateTimeToString(post_time))
     song_name.set(data[preset]['song_name'])
     song_link = data[preset]['song_link']
-    #Start and stop playback immediately to avoid replacing the info
-    sp.start_playback(uris=[song_link])
-    sp.pause_playback()
     song_label.bind('<Button-1>', lambda a, m=song_link: openURL(m))
     album_name.set(data[preset]['album_name'])
     album_link = data[preset]['album_link']
+    #Start and stop playback immediately to avoid replacing the info
+    sp.start_playback(context_uri=album_link, offset={"uri": song_link})
+    sp.pause_playback()
     album_label.bind('<Button-1>', lambda a, m=album_link: openURL(m))
     artist_name.set(data[preset]['artist_name'])
     artist_link = data[preset]['artist_link']
@@ -549,9 +548,27 @@ def createPreset(i, data, mode="from_buffer"):
         "album_cover_box": album_cover_box
     }
 
+#MARK: Delete Preset
 #TODO: Make this a thing
 def deletePreset():
-    pass
+    global data
+    global selected_preset
+    global preset_list
+    global preset_num
+    print(selected_preset)
+    if selected_preset != 0:
+        data.pop(str(selected_preset), None)
+        #Presets are 1-indexed
+        preset_list.pop(selected_preset - 1)
+    #TODO: Delete preset frames
+    #TODO: Move higher index presets down by one
+    for i in range(selected_preset + 1, preset_num):
+        data[str(i-1)] = data[str(i)]
+    data.pop(preset_num, None)
+    json.dump(data, open(SAVE_PATH, 'w'), indent=4)
+    preset_num -= 1
+    selected_preset = 0
+
 
 #MARK: Update Entries
 def updateEntries(entry):
@@ -632,6 +649,8 @@ client_id = getenv('spotipy_client_id')
 client_secret = getenv('spotipy_client_secret')
 SCOPE = ("user-modify-playback-state", "user-read-currently-playing")
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id,client_secret=client_secret,redirect_uri="http://127.0.0.1:3000",scope=SCOPE))
+
+# sp.start_playback(context_uri="spotify:album:4ncHBqf9da4Y3qosIxnrnJ", offset={"uri": "spotify:track:02zclmxRto3GAUBdtV7D8i"})
 
 #Threading stuff
 service_thread = threading.Thread(target=startService)
