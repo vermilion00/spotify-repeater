@@ -8,10 +8,15 @@
 #TODO:
 #Fix song playing for a split second when preset is loaded
 #Fix main view shifting around when preset view is expanded
+#First start doesn't work, likely because the updateInfo()-thread starts before
+#authorization is given and crashes. Wait until authorization is given before proceeding
+#Add icons
+#Do something else with updateInfoThread while not updating info
 
 #MARK: Imports
 import spotipy
-from spotipy.oauth2 import SpotifyOAuth
+from spotipy.oauth2 import SpotifyPKCE
+from spotipy.cache_handler import CacheFileHandler
 from string_to_time import StringToTime as stt
 from string_to_time import TimeToString as tts
 import time
@@ -19,8 +24,7 @@ from tkinter import *
 from tkinter import ttk
 from PIL import ImageTk, Image
 import threading
-from os import getenv, makedirs, path, remove
-from ctypes import windll
+from os import makedirs, path, remove, name
 import requests
 from io import BytesIO
 from webbrowser import open_new
@@ -33,16 +37,18 @@ NOT_PLAYING_IMG = ".presets/not_playing.jpg"
 SAVE_DIR = ".presets"
 SAVE_PATH = ".presets/savefile.txt"
 FORBIDDEN_CHARS = r'[\\/:*?"<>|]' #Not allowed in windows file names
-test = r'Test\<>///|||???::*'
 
 #In char units
 PLAYER_LABEL_WIDTH = 44
 PRESET_LABEL_WIDTH = 20
 
-#TODO: Make sure this works on other platforms
 #Make presets folder if it doesn't exist
 if not path.exists(SAVE_DIR):
     makedirs(SAVE_DIR)
+#Checks if running on windows
+if name == 'nt':
+    from ctypes import windll
+    #Set folder to be hidden
     ret = windll.kernel32.SetFileAttributesW(SAVE_DIR, 0x02)
 
 #0 is highest, 2 is lowest
@@ -298,6 +304,13 @@ def stopEvent(pause=False):
             pass
 
 #MARK: Helper funcs
+#Wait until authorization to start updateInfo
+def startUpdateInfo():
+    global cache_handler
+    while cache_handler.get_cached_token() == None:
+        time.sleep(0.1)
+    updateInfo()
+
 def playpause():
     global stop
     stop = True
@@ -451,7 +464,8 @@ def loadPreset(preset):
         album_link = data[preset]['album_link']
         #Start and stop playback immediately to avoid replacing the info
         sp.start_playback(context_uri=album_link, offset={"uri": song_link})
-        sp.pause_playback()
+        #TODO: Add this back when I figure out how to pause it immediately
+        # sp.pause_playback()
         album_label.bind('<Button-1>', lambda a, m=album_link: openURL(m))
         artist_name.set(data[preset]['artist_name'])
         artist_link = data[preset]['artist_link']
@@ -493,7 +507,6 @@ def loadPresetsfromDisk():
         for i in data.keys():
             if i == "0":
                 continue
-            #TODO: If data[0] becomes setting dict, remove + 1
             preset_num += 1
             createPreset(i, data[i], mode="from_disk")
     except:
@@ -501,10 +514,6 @@ def loadPresetsfromDisk():
     #Expand preset bar at open
     if settings['show_presets'] == True and preset_num > 0:
         toggleMenu()
-        # preset_bar_helper.pack(side='top', expand=True, fill='both')
-        # menu_visibility = True
-        # menu_btn.config(text="Hide presets")
-        # menu_btn.bind('<Enter>', lambda a, m='hide_presets_button': showHint(m))
 
 #MARK: Create Preset
 def createPreset(i, data, mode="from_buffer"):
@@ -639,9 +648,7 @@ def updateEntries(entry):
             pre_time = t.translate(pre_time_entry.get())
         case "post_time":
             post_time = t.translate(post_time_entry.get())
-        # #Update all entries
-        # case "preset_name_entry":
-        #     preset_name.set(preset_name_entry.get())
+        # Update all entries
         case _:
             start_time = t.translate(start_time_entry.get())
             end_time = t.translate(end_time_entry.get())
@@ -676,14 +683,16 @@ def toggleMenu():
 
 #MARK: Setup
 #Spotipy config
-client_id = getenv('spotipy_client_id')
-client_secret = getenv('spotipy_client_secret')
+client_id = '99a806166c72479f95636439a05cf4ec'
 SCOPE = ("user-modify-playback-state", "user-read-currently-playing")
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id,client_secret=client_secret,redirect_uri="http://127.0.0.1:3000",scope=SCOPE))
+cache_handler = CacheFileHandler(cache_path=SAVE_DIR + "/.cache")
+# sp_oauth = SpotifyPKCE(client_id=client_id, redirect_uri="http://127.0.0.1:3000", scope=SCOPE, cache_handler=cache_handler)
+sp = spotipy.Spotify(oauth_manager=SpotifyPKCE(client_id=client_id, redirect_uri="http://127.0.0.1:3000", scope=SCOPE, cache_handler=cache_handler))
 
+#TODO: Wait for authorization before starting threads
 #Threading stuff
 service_thread = threading.Thread(target=startService)
-info_thread = threading.Thread(target=updateInfo)
+info_thread = threading.Thread(target=startUpdateInfo)
 service_thread.daemon = True
 info_thread.daemon = True
 service_thread.start()
@@ -692,12 +701,7 @@ info_thread.start()
 #MARK: Tkinter
 root = Tk()
 root.title("Spotify Repeater")
-# root.geometry("660x350")
-# root.maxsize(height=900)
-# root.pack_propagate(False)
 root.resizable(False, False)
-#root.minsize()
-#root.maxsize()
 start_time = 0
 end_time = 0
 pre_time = 0
@@ -721,7 +725,7 @@ artist_name = StringVar()
 album_name = StringVar()
 song_name = StringVar()
 release_date = StringVar()
-#Already converted
+#Already converted to String
 song_duration = StringVar()
 album_link = ""
 song_link = ""
@@ -733,7 +737,6 @@ preset_list = []
 preset_dict = {}
 
 mainframe = ttk.Frame(root, padding="1 1 1 1")
-# mainframe.pack_propagate(False)
 mainframe.pack(side='left', anchor=NW)
 
 #Hello message
@@ -759,14 +762,11 @@ end_time_entry.grid(row=3, column=3)
 end_time_entry.bind('<Return>', startEvent)
 end_time_entry.bind('<Enter>', lambda a, m="end_entry": showHint(m))
 end_time_entry.bind('<FocusOut>', lambda a, m="end_time": updateEntries(m))
-# end_time_entry.bind('<FocusIn>', (lambda args: duration_entry.delete('0', 'end')))
 
 #Duration stuff
 duration_msg = ttk.Label(mainframe, text="Duration").grid(row=2, column=4)
 duration_entry = ttk.Entry(mainframe, state=DISABLED, justify=CENTER, width=9)
 duration_entry.bind('<Enter>', lambda a, m="duration_entry": showHint(m))
-# duration_entry.bind('<FocusIn>', (lambda args: duration_entry.delete('0', 'end')))
-# duration_entry.bind('<FocusIn>', (lambda args: end_time_entry.delete('0', 'end')))
 duration_entry.grid(row=3, column=4)
 
 #Pre-Time stuff
@@ -871,9 +871,9 @@ delete_preset_btn = ttk.Button(mainframe, text="Delete preset", command=deletePr
 delete_preset_btn.grid(row=16, column=5)
 delete_preset_btn.bind('<Enter>', lambda a, m="delete_preset_button": showHint(m))
 preset_name_label = ttk.Label(mainframe, text="Preset name", justify=CENTER)
-preset_name_label.grid(row=14, column=4)
+preset_name_label.grid(row=15, column=3)
 preset_name_entry = ttk.Entry(mainframe, textvariable=preset_name, width=15, justify=CENTER)
-preset_name_entry.grid(row=15, column=4)
+preset_name_entry.grid(row=16, column=3)
 preset_name_entry.bind('<Enter>', lambda a, m="preset_name_entry": showHint(m))
 preset_name_entry.bind('<FocusOut>', lambda a, m="preset_name_entry": updateEntries(m))
 
@@ -882,7 +882,6 @@ menu_btn = ttk.Button(mainframe, text="Show presets", command=toggleMenu)
 menu_btn.grid(row=17, column=5)
 menu_btn.bind('<Enter>', lambda a, m='show_presets_button': showHint(m))
 preset_bar_helper = ScrolledFrame(root, width=198, height=347, scrollbars='vertical')
-# preset_bar_helper.pack(side='top', expand=True, fill='both')
 preset_bar_helper.bind_scroll_wheel(root)
 preset_bar = preset_bar_helper.display_widget(Frame)
 preset_bar_helper.bind('<Enter>', lambda a, m="preset_bar": showHint(m))
@@ -892,7 +891,4 @@ loadPresetsfromDisk()
 #Focus on start time box when window opens
 start_time_entry.focus_force()
 
-#root.update()
-#Keep song info updated every second
-# update()
 root.mainloop()
